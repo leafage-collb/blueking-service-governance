@@ -35,6 +35,7 @@ interface ImportMetaEnv {
   readonly BK_API_URL_TMPL: string;
   readonly BK_APP_HOST: string;
   readonly BK_APP_PORT: string;
+  readonly BK_BSCP: string;
   readonly BK_BSCP_URL: string;
   readonly BK_DEVOPS: string;
   readonly BK_DOC_URL: string;

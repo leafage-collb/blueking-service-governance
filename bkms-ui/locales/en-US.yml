@@ -383,6 +383,33 @@ Chart 版本: Chart Version
 创建中: Creating in progress
 异常: abnormal
 应用配置: Application Configuration
+业务配置: Business Configuration
+文件型: File-based
+暂无可用环境: No environments available
+当前环境尚未启用文件类型配置: File-based configuration is not enabled for the current environment
+启用后，会在蓝鲸配置平台（BSCP）上创建文件类型的配置服务: Enabling this feature creates a file-based configuration service in BlueKing Service Configuration Platform (BSCP)
+启用配置: Enable Configuration
+启用配置成功: Configuration enabled
+挂载配置: Mount Configuration
+挂载路径：{0}: "Mount path: {0}"
+未启用，配置文件不会挂载到容器: Disabled. Configuration files will not be mounted into the container
+启用挂载配置: Enable Mount Configuration
+编辑挂载路径: Edit Mount Path
+挂载路径: Mount Path
+请输入挂载路径: Enter a mount path
+配置文件将以 Sidecar 方式注入，启用后需重新部署应用才生效: Configuration files are injected using a sidecar. Redeploy the application for changes to take effect
+确认关闭配置文件挂载？: Disable configuration file mounting?
+关闭后，所有环境的配置文件将不再挂载到容器: Configuration files in all environments will no longer be mounted into containers
+该操作会移除所有环境的文件型配置绑定: This removes file-based configuration bindings from all environments
+此操作需重新部署应用后才会生效: Redeploy the application for this operation to take effect
+加载业务配置失败: Failed to load business configuration
+挂载配置已启用: Mount configuration enabled
+挂载路径修改成功: Mount path updated
+挂载配置修改成功: Mount configuration updated
+挂载配置已关闭: Mount configuration disabled
+编辑挂载配置: Edit Mount Configuration
+请输入应用名称: Enter an application name
+请选择应用类型: Select an application type
 启动命令: Start Command
 环境变量: Environment Variables
 策略配置: Policy Configuration
