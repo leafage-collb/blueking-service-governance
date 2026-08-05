@@ -4,10 +4,18 @@
       class="mb-[16px] h-[48px] flex flex-shrink-0 items-center bg-[#EAEBF0] px-[16px] shadow-[0_2px_4px_0_#0000001a]"
     >
       <!-- 环境选择器 -->
-      <EnvSelectPanel
-        v-model="currentEnvName"
-        init-first-env-when-empty
-        @update:loading="envSelectorLoading = $event"
+      <EnvPerspectiveSelect
+        :env-list="envList"
+        :label="$t('环境')"
+        :model-value="currentEnvName"
+        :show-default="false"
+        :status-config="{
+          activeText: '已启用',
+          filterText: '仅显示已启用环境',
+          inactiveText: '未启用',
+        }"
+        :status-env-names="enabledEnvNames"
+        @change="handleEnvSelectChange"
       />
     </div>
 
@@ -356,13 +364,15 @@
   import { Alert, Button, Exception, Form, Input, Loading, Message, Popover, Select, Switcher } from 'bkui-vue';
   import { EditLine } from 'bkui-vue/lib/icon';
   import { useI18n } from 'vue-i18n';
-  import { BscpcfgService } from '~/api/modules/v1';
-  import EnvSelectPanel from '~/components/env-select-panel.vue';
+  import { BscpcfgService, EnvService } from '~/api/modules/v1';
   import { isHelmLikeAppType } from '~/composables/app-type';
   import { useAppDetail } from '~/stores/app-detail';
   import { useDeployEnvStore } from '~/stores/deploy-env';
 
+  import EnvPerspectiveSelect from '../app-config/env-perspective-select.vue';
+
   import type { EnvBindingOutput, MetadataOutput } from '~/@types/v1/bscpcfg';
+  import type { EnvOutput } from '~/@types/v1/env';
 
   type ApiError = {
     error?: {
@@ -384,11 +394,14 @@
   const editLoading = ref(false);
   const disableLoading = ref(false);
   const workloadKindOptions = ['Deployment', 'DaemonSet', 'StatefulSet', 'GameDeployment', 'GameStatefulSet'] as const;
+  const envList = ref<EnvOutput[]>([]);
+  const enabledEnvNames = ref<string[]>([]);
   // Metadata 是应用级共享配置；EnvBinding 只代表当前环境是否已启用文件型配置。
   const metadata = ref<MetadataOutput | null>(null);
   const currentEnvBinding = ref<EnvBindingOutput | null>(null);
   // 环境快速切换时只允许最后一次请求更新页面，避免旧环境状态回写。
   const loadRequestID = ref(0);
+  const envListRequestID = ref(0);
 
   const mountForm = reactive(createMountForm());
   const editForm = reactive(createMountForm());
@@ -476,13 +489,12 @@
     };
   }
 
-  /** 查询并返回指定环境的配置绑定信息 */
-  async function fetchCurrentEnvBinding(envName: string) {
-    const bindings = await BscpcfgService.listBscpCfgEnvBindings(
+  /** 查询应用下全部环境的配置绑定信息 */
+  async function fetchEnvBindings() {
+    return BscpcfgService.listBscpCfgEnvBindings(
       { appID: appDetailStore.appID },
       { interceptorErr: false, needStatus: true },
     );
-    return bindings.find(item => item.envName === envName) || null;
   }
 
   /** 获取应用级元数据（404 返回 null，表示未初始化） */
@@ -512,6 +524,7 @@
       await BscpcfgService.deleteBscpCfgMetadata({ appID: appDetailStore.appID });
       metadata.value = null;
       currentEnvBinding.value = null;
+      enabledEnvNames.value = [];
       disablePopoverRef.value?.hide();
       Message({ message: t('挂载配置已关闭'), theme: 'success' });
     } finally {
@@ -587,6 +600,12 @@
     nextTick(() => mountInputRef.value?.focus?.());
   }
 
+  /** 切换业务配置环境并同步全局当前环境 */
+  function handleEnvSelectChange(envName: string) {
+    currentEnvName.value = envName;
+    deployEnvStore.updateCurrentEnv(envName);
+  }
+
   /** 更新挂载配置：Helm-like 应用会一次性提交路径、工作负载类型和名称。 */
   async function handleUpdateMountPath() {
     if (!(await validateForm(editFormRef.value))) return;
@@ -610,6 +629,7 @@
     if (!appID || !envName) {
       metadata.value = null;
       currentEnvBinding.value = null;
+      enabledEnvNames.value = [];
       pageLoading.value = false;
       return;
     }
@@ -620,20 +640,46 @@
       const metadataResult = await fetchMetadata();
       if (requestID !== loadRequestID.value) return;
 
-      const bindingResult = metadataResult ? await fetchCurrentEnvBinding(envName) : null;
+      const bindings = metadataResult ? await fetchEnvBindings() : [];
       if (requestID !== loadRequestID.value) return;
       metadata.value = metadataResult;
-      currentEnvBinding.value = bindingResult;
+      currentEnvBinding.value = bindings.find(item => item.envName === envName) || null;
+      enabledEnvNames.value = bindings.map(item => item.envName).filter((name): name is string => !!name);
     } catch (error: unknown) {
       if (requestID !== loadRequestID.value) return;
       metadata.value = null;
       currentEnvBinding.value = null;
+      enabledEnvNames.value = [];
       showLoadError(error);
     } finally {
       if (requestID === loadRequestID.value) {
         pageLoading.value = false;
       }
     }
+  }
+
+  /** 加载应用环境并初始化业务配置当前环境 */
+  async function loadEnvList() {
+    const appID = appDetailStore.appID;
+    const requestID = ++envListRequestID.value;
+
+    if (!appID) {
+      envList.value = [];
+      currentEnvName.value = '';
+      envSelectorLoading.value = false;
+      return;
+    }
+
+    envSelectorLoading.value = true;
+    const list = await EnvService.listAppEnvs({ appID }).catch(() => []);
+    if (requestID !== envListRequestID.value || appDetailStore.appID !== appID) return;
+
+    envList.value = list;
+    const preferredEnvName = currentEnvName.value || deployEnvStore.currentEnv;
+    const selectedEnv = list.find(item => item.name === preferredEnvName) || list[0];
+    currentEnvName.value = selectedEnv?.name || '';
+    deployEnvStore.updateCurrentEnv(currentEnvName.value);
+    envSelectorLoading.value = false;
   }
 
   /** 重置挂载表单，避免两个 Popover 之间残留输入或校验状态。 */
@@ -662,6 +708,7 @@
     }
   }
 
+  watch(() => appDetailStore.appID, loadEnvList, { immediate: true });
   watch([() => appDetailStore.appID, currentEnvName], loadCurrentState, { immediate: true });
 </script>
 
