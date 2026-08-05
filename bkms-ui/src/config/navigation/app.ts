@@ -142,7 +142,7 @@ export const TRPC_NAVIGATION: NavigationItem[] = [
       {
         key: 'businessConfig',
         name: i18n.global.t('业务配置'),
-        icon: 'setting-line',
+        icon: 'business-config',
         component: businessConfig,
         meta: {
           layout: 'empty',
@@ -256,7 +256,7 @@ export const HELM_NAVIGATION: NavigationItem[] = [
       {
         key: 'businessConfig',
         name: i18n.global.t('业务配置'),
-        icon: 'setting-line',
+        icon: 'business-config',
         component: businessConfig,
         meta: {
           layout: 'empty',

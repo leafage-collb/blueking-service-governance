@@ -362,3 +362,6 @@ url("fonts/iconcool.eot?#iefix") format("embedded-opentype");
 .bkms-icon-half-circle:before {
 	content: "\e1b3";
 }
+.bkms-icon-business-config:before {
+	content: "\e1b7";
+}
