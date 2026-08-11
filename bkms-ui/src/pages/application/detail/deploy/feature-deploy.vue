@@ -257,6 +257,8 @@
 
   // 提交部署：创建特性环境并执行部署
   async function handleSubmit() {
+    if (confirmLoading.value) return;
+
     // 校验主表单
     const valid = await formRef.value?.validate().catch(() => false);
     if (!valid || !appDetailStore.appID) return;

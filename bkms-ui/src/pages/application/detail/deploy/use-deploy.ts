@@ -27,6 +27,7 @@ import {
   type DeleteHelmDeployRequest,
   type DeleteTafDeployRequest,
   type DeleteTrpcDeployRequest,
+  type EnvVarPreCheckOutput,
   type GetLatestAppModelDeployStatusOutput,
   type GetLatestTafDeployStatusRequest,
   type GetLatestTrpcDeployStatusRequest,
@@ -34,6 +35,8 @@ import {
   type ListHelmDeployRecordsRequest,
   type ListTafDeployRecordsRequest,
   type ListTrpcDeployRecordsRequest,
+  type PreCheckTafDeployEnvVarsRequest,
+  type PreCheckTrpcDeployEnvVarsRequest,
 } from '~/@types/v1/deploy';
 import {
   type ExecuteTafAdminCmdOutput,
@@ -121,6 +124,14 @@ interface DeployAPIs {
     params?: GetLatestTafDeployStatusRequest | GetLatestTrpcDeployStatusRequest,
     config?: Config,
   ) => Promise<ExtractData<GetLatestAppModelDeployStatusOutput>>;
+
+  /**
+   * 部署前环境变量校验（仅 tRPC / TAF）
+   */
+  preCheckDeployEnvVars?: (
+    params?: PreCheckTafDeployEnvVarsRequest | PreCheckTrpcDeployEnvVarsRequest,
+    config?: Config,
+  ) => Promise<EnvVarPreCheckOutput>;
 }
 
 /**
@@ -169,6 +180,7 @@ export function useDeployAPIs(appType: DeployableAppType): DeployAPIs {
     trpc: {
       listDeployRecords: DeployService.listTrpcDeployRecords,
       listLatestDeployRecords: DeployService.getLatestTrpcDeployStatus,
+      preCheckDeployEnvVars: DeployService.preCheckTrpcDeployEnvVars,
       createDeployDirectly: DeployService.createTrpcDeploy,
       buildAndCreateDeploy: BuildAutodeployService.createTrpcBuildDeploy,
       deleteDeploy: DeployService.deleteTrpcDeploy,
@@ -177,6 +189,7 @@ export function useDeployAPIs(appType: DeployableAppType): DeployAPIs {
     taf: {
       listDeployRecords: DeployService.listTafDeployRecords,
       listLatestDeployRecords: DeployService.getLatestTafDeployStatus,
+      preCheckDeployEnvVars: DeployService.preCheckTafDeployEnvVars,
       createDeployDirectly: DeployService.createTafDeploy,
       buildAndCreateDeploy: BuildAutodeployService.createTafBuildDeploy,
       deleteDeploy: DeployService.deleteTafDeploy,

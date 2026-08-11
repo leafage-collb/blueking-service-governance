@@ -99,6 +99,8 @@
   }
 
   async function handleSubmit() {
+    if (confirmLoading.value) return;
+
     try {
       const envName = trpcDeployStore.curEnvItem?.name;
       if (!envName) return;

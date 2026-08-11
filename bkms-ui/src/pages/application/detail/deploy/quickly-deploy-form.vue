@@ -17,77 +17,88 @@
 -->
 
 <template>
-  <Form
-    ref="formRef"
-    form-type="vertical"
-    :model="formModel"
-  >
-    <Form.FormItem
-      :label="$t('实例数')"
-      property="replicas"
-      required
+  <div>
+    <Form
+      ref="formRef"
+      form-type="vertical"
+      :model="formModel"
     >
-      <Input
-        v-model.number="formModel.replicas"
-        :min="1"
-        :precision="0"
-        type="number"
-      />
-    </Form.FormItem>
-
-    <Form.FormItem
-      :label="$t('镜像来源')"
-      required
-    >
-      <Button.ButtonGroup class="flex items-center">
-        <Button
-          class="flex-1"
-          :selected="imageSource === 'image'"
-          @click="handleChangeImageSource('image')"
-        >
-          {{ $t('已构建镜像') }}
-        </Button>
-        <Button
-          v-bk-tooltips="{
-            content: $t('生产类型环境只能部署已经晋级的镜像 Tag'),
-            disabled: !isProdEnv,
-          }"
-          class="flex-1"
-          :disabled="isProdEnv"
-          :selected="imageSource === 'code'"
-          @click="handleChangeImageSource('code')"
-        >
-          {{ $t('从源码构建') }}
-        </Button>
-      </Button.ButtonGroup>
-    </Form.FormItem>
-    <template v-if="imageSource === 'code'">
       <Form.FormItem
-        :label="$t('代码分支')"
-        property="branch"
+        :label="$t('实例数')"
+        property="replicas"
         required
       >
-        <Input v-model.trim="formModel.branch" />
+        <Input
+          v-model.number="formModel.replicas"
+          :min="1"
+          :precision="0"
+          type="number"
+        />
       </Form.FormItem>
-    </template>
-    <Form.FormItem
-      :label="$t('镜像 Tag')"
-      property="imageTag"
-      required
-    >
-      <Input
-        v-if="imageSource === 'code'"
-        v-model.trim="formModel.imageTag"
-      />
-      <ImageSelect
-        v-else
-        ref="imageSelectRef"
-        v-model:value="formModel.imageTag"
-        :env-name="envName"
-        :env-type="envType"
-      />
-    </Form.FormItem>
-  </Form>
+
+      <Form.FormItem
+        :label="$t('镜像来源')"
+        required
+      >
+        <Button.ButtonGroup class="flex items-center">
+          <Button
+            class="flex-1"
+            :selected="imageSource === 'image'"
+            @click="handleChangeImageSource('image')"
+          >
+            {{ $t('已构建镜像') }}
+          </Button>
+          <Button
+            v-bk-tooltips="{
+              content: $t('生产类型环境只能部署已经晋级的镜像 Tag'),
+              disabled: !isProdEnv,
+            }"
+            class="flex-1"
+            :disabled="isProdEnv"
+            :selected="imageSource === 'code'"
+            @click="handleChangeImageSource('code')"
+          >
+            {{ $t('从源码构建') }}
+          </Button>
+        </Button.ButtonGroup>
+      </Form.FormItem>
+      <template v-if="imageSource === 'code'">
+        <Form.FormItem
+          :label="$t('代码分支')"
+          property="branch"
+          required
+        >
+          <Input v-model.trim="formModel.branch" />
+        </Form.FormItem>
+      </template>
+      <Form.FormItem
+        :label="$t('镜像 Tag')"
+        property="imageTag"
+        required
+      >
+        <Input
+          v-if="imageSource === 'code'"
+          v-model.trim="formModel.imageTag"
+        />
+        <ImageSelect
+          v-else
+          ref="imageSelectRef"
+          v-model:value="formModel.imageTag"
+          :env-name="envName"
+          :env-type="envType"
+        />
+      </Form.FormItem>
+    </Form>
+
+    <!-- 环境变量预检查弹窗 -->
+    <DeployEnvVarPrecheckDialog
+      v-model:is-show="precheckDialog.isShow.value"
+      :action-locked="precheckDialog.actionLocked.value"
+      :undefined-vars="precheckDialog.undefinedVars.value"
+      @cancel="precheckDialog.cancel"
+      @continue="precheckDialog.continueDeploy"
+    />
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -100,7 +111,9 @@
   import { useTrpcDeployStore } from '~/stores/trpc-deploy';
 
   import ImageSelect from '../../components/image-select.vue';
+  import DeployEnvVarPrecheckDialog from './deploy-env-var-precheck-dialog.vue';
   import { type DeployableAppType, type DeployParams, useDeployAPIs } from './use-deploy';
+  import { useDeployEnvVarPrecheck } from './use-deploy-env-var-precheck';
 
   // 镜像来源类型：从源码构建 / 已构建镜像
   type ImageSourceType = 'code' | 'image';
@@ -114,6 +127,7 @@
 
   const trpcDeployStore = useTrpcDeployStore();
   const appDetailStore = useAppDetail();
+  const precheckDialog = useDeployEnvVarPrecheck();
 
   // 当前选择的镜像来源
   const imageSource = ref<ImageSourceType>('image');
@@ -209,6 +223,13 @@
   async function submit(targetEnvName: string) {
     const valid = await validate();
     if (!valid) return false;
+
+    const canDeploy = await precheckDialog.precheck({
+      appID: appDetailStore.appID,
+      appType: appDetailStore.appType as DeployableAppType,
+      envName: targetEnvName,
+    });
+    if (!canDeploy) return false;
 
     await deploy(targetEnvName);
     forceCleanDirtyTag();
