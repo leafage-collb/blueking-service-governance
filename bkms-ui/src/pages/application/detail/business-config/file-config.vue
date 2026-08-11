@@ -421,7 +421,7 @@
     const bscpOrigin = import.meta.env.BK_BSCP?.replace(/\/+$/, '');
     if (!bscpOrigin || !bscpBizID || !defaultFileAppID) return '';
 
-    return `${bscpOrigin}/space/${encodeURIComponent(bscpBizID)}/service/${encodeURIComponent(defaultFileAppID)}/config`;
+    return `${bscpOrigin}/space/${encodeURIComponent(bscpBizID)}/service/${encodeURIComponent(defaultFileAppID)}/config?hideNav=1`;
   });
   const mountEnabled = computed(() => !!metadata.value?.mountPath?.trim());
   const mountFormRules = {
