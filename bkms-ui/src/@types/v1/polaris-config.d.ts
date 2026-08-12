@@ -384,9 +384,9 @@ export interface EnvInstanceStatsOutput {
    */
   totalInstanceCount?: number;
   /**
-   * 本环境存在被单独设置权重的 Pod，实际权重可能与配置的单实例权重不一致
+   * 本环境被单独设置过权重的实例数，其实际权重可能与配置的单实例权重不一致
    */
-  weightOverridden?: boolean;
+  weightOverriddenInstanceCount?: number;
 }
 
 export interface PolarisNameOutputObj {
