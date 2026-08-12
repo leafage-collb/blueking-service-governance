@@ -20,6 +20,13 @@ export interface DeleteAppRequest {
   appID: string;
 }
 
+export interface GetAppDeployOverviewRequest {
+  /**
+   * 应用 ID
+   */
+  appID: string;
+}
+
 export interface GetAppDeployStatusesRequest {
   /**
    * 应用 ID
@@ -85,6 +92,13 @@ export interface GetAppOutput {
 }
 
 export interface EmptyOutput {
+}
+
+export interface GetAppDeployOverviewOutput {
+  /**
+   * 已关联（AppIDs）环境行
+   */
+  data?: AppDeployOverviewEnvObj[];
 }
 
 export interface GetAppDeployStatusesOutput {
@@ -527,6 +541,144 @@ export interface AppDeployedEnvOutputObj {
    * 环境类型（development / test / staging / production）
    */
   type?: string;
+}
+
+export interface AppDeployOverviewEnvObj {
+  /**
+   * 自动扩缩容配置摘要；无 GPA 配置时为 null
+   */
+  autoscaling?: DeployOverviewAutoscalingObj;
+  /**
+   * 部署状态（原始枚举）
+   */
+  deployStatus?: string;
+  /**
+   * 环境展示名称
+   */
+  envDisplayName?: string;
+  /**
+   * 环境 ID
+   */
+  envID?: string;
+  /**
+   * 环境类别（standard / feature）
+   */
+  envKind?: string;
+  /**
+   * 环境名称（英文标识）
+   */
+  envName?: string;
+  /**
+   * 环境类型（development / test / staging / production）
+   */
+  envType?: string;
+  /**
+   * 实例数；不可用时为 null
+   */
+  instances?: DeployOverviewInstancesObj;
+  /**
+   * 最近一次部署开始时间；无记录时省略
+   */
+  lastDeployStartedAt?: string;
+  /**
+   * 资源规格（app-spec 生效值）
+   */
+  resources?: DeployOverviewResourcesObj;
+}
+
+export interface DeployOverviewAutoscalingObj {
+  /**
+   * 利用率计算基准：true 以 limits 为基准，false 以 requests 为基准
+   */
+  computeByLimits?: boolean;
+  /**
+   * 是否启用
+   */
+  enabled?: boolean;
+  /**
+   * 最大副本数
+   */
+  maxReplicas?: number;
+  /**
+   * 指标模式扩缩容指标列表
+   */
+  metrics?: DeployOverviewAutoscalingMetricObj[];
+  /**
+   * 最小副本数
+   */
+  minReplicas?: number;
+  /**
+   * 集群 GPA CR 运行状态；未启用 / CR 缺失 / 查询失败时为 null
+   */
+  status?: DeployOverviewAutoscalingStatusObj;
+}
+
+export interface DeployOverviewInstancesObj {
+  /**
+   * 存在但未 Ready 的 Pod 数
+   */
+  abnormal?: number;
+  /**
+   * 期望副本数（workload spec.replicas）
+   */
+  expected?: number;
+  /**
+   * Ready Pod 数
+   */
+  running?: number;
+}
+
+export interface DeployOverviewResourcesObj {
+  /**
+   * CPU limits（Kubernetes quantity 字符串）
+   */
+  cpuLimits?: string;
+  /**
+   * CPU requests
+   */
+  cpuRequests?: string;
+  /**
+   * Memory limits
+   */
+  memoryLimits?: string;
+  /**
+   * Memory requests
+   */
+  memoryRequests?: string;
+}
+
+export interface DeployOverviewAutoscalingMetricObj {
+  /**
+   * 平均使用率阈值（百分比）
+   */
+  averageUtilization?: number;
+  /**
+   * 指标资源类型：cpu / memory
+   */
+  resource?: string;
+}
+
+export interface DeployOverviewAutoscalingStatusObj {
+  /**
+   * 当前副本数
+   */
+  currentReplicas?: number;
+  /**
+   * 期望副本数
+   */
+  desiredReplicas?: number;
+  /**
+   * 上次扩缩容时间（RFC3339 字符串，可能为空）
+   */
+  lastScaleTime?: string;
+  /**
+   * Phase：Active / Paused / Limited / Failed / Initializing / Unknown
+   */
+  phase?: string;
+  /**
+   * 非 True condition 的汇总消息；出错时可展示
+   */
+  statusMessage?: string;
 }
 
 export interface AppDetailOutputObj {
