@@ -1753,3 +1753,15 @@ tRPC 运行时解析，平台不渲染进配置文件: Resolved by tRPC at runti
 "构建产物需放到 {0} 下，runner 阶段仅从此路径拷贝进运行镜像。不限定命令形式（{1} 等均可），只要最终产物落到该路径即可，例如：": "Build artifacts must be placed under {0}. The runner stage only copies from this path into the runtime image. There is no restriction on command format (e.g., {1}), as long as the final artifacts are placed in this path, for example:"
 "若 go.mod 有使用工蜂私有仓库依赖包，构建参数中需要添加 {0}，取值见：": "If go.mod uses dependencies from Woa's private repository, you need to add {0} to the build parameters. Refer to:"
 一般可留空: Can generally be left empty
+"{0} 核 / {1}": "{0} Cores / {1}"
+"CPU：Requests {0} 核 / Limits {1} 核": "CPU: Requests {0} Cores / Limits {1} Cores"
+"内存：Requests {0} / Limits {1}": "Memory: Requests {0} / Limits {1}"
+"{0} {1} 使用率：{2}%": "{0} {1} Utilization: {2}%"
+"实例数区间：{0} ~ {1} 个": "Instance Range: {0} - {1}"
+实例数（运行/期望/异常）: Instances (Running/Desired/Abnormal)
+新增部署: New Deployment
+最近部署: Latest Deployment
+特性: Feature
+自动扩缩容已关闭: Autoscaling Disabled
+请选择目标环境: Please select a target environment
+部署总览: Deployment Overview
