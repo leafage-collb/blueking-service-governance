@@ -41,6 +41,31 @@
       :model="targetFormModel"
       :rules="targetFormRules"
     >
+      <!-- 环境分类 -->
+      <Form.FormItem
+        :label="$t('环境分类')"
+        property="envType"
+        required
+      >
+        <Radio.Group
+          v-model="targetFormModel.envType"
+          class="flex items-center"
+        >
+          <Radio
+            v-for="envType in envTypes"
+            :key="envType"
+            :label="envType"
+          >
+            <Tag
+              class="cursor-pointer"
+              :class="envTypeTagClassMap[envType]"
+              @click.stop="targetFormModel.envType = envType"
+            >
+              {{ envTypeMap[envType]?.name || envType }}
+            </Tag>
+          </Radio>
+        </Radio.Group>
+      </Form.FormItem>
       <!-- 目标环境 -->
       <Form.FormItem
         :label="$t('环境')"
@@ -54,11 +79,22 @@
           :placeholder="$t('请选择')"
         >
           <Select.Option
-            v-for="item in targetEnvs"
+            v-for="item in filteredTargetEnvs"
             :id="item.env.name || ''"
             :key="item.env.name"
             :name="item.env.displayName || item.env.name"
-          />
+          >
+            <span class="inline-flex items-center gap-[8px]">
+              <span>{{ item.env.displayName || item.env.name }}</span>
+              <Tag
+                v-if="item.env.type && envTypeMap[item.env.type]"
+                :class="envTypeTagClassMap[item.env.type]"
+                size="small"
+              >
+                {{ envTypeMap[item.env.type]?.name || item.env.type }}
+              </Tag>
+            </span>
+          </Select.Option>
         </Select>
       </Form.FormItem>
     </Form>
@@ -94,8 +130,9 @@
 <script lang="ts" setup>
   import { computed, nextTick, reactive, ref, watch } from 'vue';
 
-  import { Button, Form, Message, Select, Sideslider } from 'bkui-vue';
+  import { Button, Form, Message, Radio, Select, Sideslider, Tag } from 'bkui-vue';
   import { useI18n } from 'vue-i18n';
+  import { envTypeMap, envTypeTagClassMap } from '~/composables/use-env-manager';
   import { useAppDetail } from '~/stores/app-detail';
   import { useTrpcDeployStore } from '~/stores/trpc-deploy';
 
@@ -124,12 +161,16 @@
   const deployFormRef = ref<InstanceType<typeof QuicklyDeployForm>>();
   const targetEnvFormRef = ref();
   const confirmLoading = ref(false);
-  const targetFormModel = reactive({ envName: '' });
+  const envTypes = ['development', 'test', 'staging', 'production'];
+  const targetFormModel = reactive({ envType: 'development', envName: '' });
   const targetFormRules = {
-    envName: [{ required: true, message: t('请选择目标环境'), trigger: 'change' }],
+    envName: [{ required: true, message: t('请选择环境'), trigger: 'change' }],
   };
   // 用 undefined 区分入口：空数组仍代表总览模式，只是环境列表尚未返回或当前没有可部署环境。
   const hasTargetSelector = computed(() => props.targetEnvs !== undefined);
+  const filteredTargetEnvs = computed(() =>
+    props.targetEnvs?.filter(item => item.env.type === targetFormModel.envType),
+  );
   const selectedTarget = computed(() => props.targetEnvs?.find(item => item.env.name === targetFormModel.envName));
   const targetEnv = computed(() => (hasTargetSelector.value ? selectedTarget.value?.env : trpcDeployStore.curEnvItem));
   const targetEffectiveReplicas = computed(() =>
@@ -138,11 +179,6 @@
   const targetIsProdEnv = computed(() =>
     hasTargetSelector.value ? targetEnv.value?.type === 'production' : props.isProdEnv,
   );
-
-  /** 获取总览入口默认选中的第一个可部署环境；列表尚未返回时为空。 */
-  function getDefaultTargetEnvName() {
-    return props.targetEnvs?.[0]?.env.name || '';
-  }
 
   /** 规范化目标环境的初始副本数，无有效正整数时统一使用 1。 */
   function getInitialReplicas(replicas?: number) {
@@ -164,6 +200,7 @@
   /** 侧栏关闭动画结束后清理环境和部署表单，为下次打开恢复初始状态。 */
   function handleClosed() {
     deployFormRef.value?.reset(1);
+    targetFormModel.envType = 'development';
     targetFormModel.envName = '';
   }
 
@@ -195,11 +232,12 @@
     }
   }
 
-  // 每次打开默认选择第一项，并按目标环境的期望实例数初始化同一个部署表单。
+  // 每次从总览打开时默认选择开发分类，目标环境由用户明确选择。
   watch(isShow, newVal => {
     if (newVal) {
       if (hasTargetSelector.value) {
-        targetFormModel.envName = getDefaultTargetEnvName();
+        targetFormModel.envType = 'development';
+        targetFormModel.envName = '';
       }
       nextTick(() => {
         targetEnvFormRef.value?.clearValidate?.();
@@ -208,17 +246,33 @@
     }
   });
 
-  // 总览与环境列表是异步请求；侧栏先打开时，列表到达后自动补选第一项。
+  // 总览与环境列表是异步请求；列表变化时清理已经失效或不属于当前分类的环境。
   watch(
     () => props.targetEnvs,
     targets => {
       if (!isShow.value || !hasTargetSelector.value) return;
-      const currentTargetExists = targets?.some(item => item.env.name === targetFormModel.envName);
+      if (!targetFormModel.envName) return;
+      const currentTargetExists = targets?.some(
+        item => item.env.name === targetFormModel.envName && item.env.type === targetFormModel.envType,
+      );
       if (currentTargetExists) return;
-      targetFormModel.envName = targets?.[0]?.env.name || '';
+      targetFormModel.envName = '';
       nextTick(() => targetEnvFormRef.value?.clearValidate?.());
     },
     { deep: true },
+  );
+
+  // 切换环境分类时清空目标环境及部署表单，避免沿用其他分类的部署配置。
+  watch(
+    () => targetFormModel.envType,
+    () => {
+      if (!hasTargetSelector.value) return;
+      targetFormModel.envName = '';
+      nextTick(() => {
+        targetEnvFormRef.value?.clearValidate?.();
+        deployFormRef.value?.reset(1);
+      });
+    },
   );
 
   // 切换目标环境必须清空镜像、分支等内容，避免把上一环境的配置提交到新环境。
