@@ -533,13 +533,19 @@
       tabValues: Object.values(TAB_NAMES),
       defaultTab: TAB_NAMES.overview,
     },
-    env: {
-      queryKey: 'env',
-      defaultTab: '',
-    },
   });
   const activeTab = fields.activeTab;
-  const targetEnvName = fields.env;
+
+  // 兼容旧链接：部署环境属于页面状态，不在 URL 中保留。
+  watch(
+    () => route.query.env,
+    env => {
+      if (env === undefined) return;
+      const { env: _env, ...query } = route.query;
+      router.replace({ query });
+    },
+    { immediate: true },
+  );
 
   const tabList = computed<TabItem[]>(() => [
     { label: t('部署总览'), name: 'overview' },
@@ -574,7 +580,7 @@
   const isRestoringEnvSelection = ref(false);
   const envSelectMode = computed(() => (isMultiEnvMode.value ? 'multi' : 'single'));
 
-  /** 按应用恢复缓存的单/多环境选择，并让 URL 指定环境拥有最高优先级。 */
+  /** 按应用恢复缓存的单/多环境选择，并让一次性定位参数拥有最高优先级。 */
   function restoreAppEnvSelection() {
     if (!envSelectionScopeKey.value) {
       nextTick(clearRouteEnvName);
@@ -582,7 +588,7 @@
     }
     isRestoringEnvSelection.value = true;
     const selection = envStore.getAppEnvSelection(envSelectionScopeKey.value);
-    const targetName = routeEnvName.value || targetEnvName.value;
+    const targetName = routeEnvName.value;
     const selectedEnvs = targetName ? [targetName] : [...(selection?.selectedEnvs || [])];
     curEnvs.value = selectedEnvs;
     isMultiEnvMode.value = targetName ? false : selection?.mode === 'multi';
@@ -614,7 +620,7 @@
 
   // 同步多选环境到 store
   watch(
-    [envSelectionScopeKey, routeEnvName, targetEnvName],
+    [envSelectionScopeKey, routeEnvName],
     () => {
       restoreAppEnvSelection();
     },
@@ -789,9 +795,6 @@
     trpcDeployStore.updateCurEnvItem(env);
     latestDeployStatus.value = null;
     initLoading.value = true;
-    if (!isMultiEnvMode.value && env?.name) {
-      targetEnvName.value = env.name;
-    }
   }
 
   /** 将多选环境名称同步到共享 Store，供多环境实例表格请求数据。 */
@@ -844,12 +847,12 @@
     trpcDeployStore.updateCurEnvItem(env);
     latestDeployStatus.value = null;
     initLoading.value = true;
-    // activeTab 与 env 必须原子写入；连续修改两个 URL computed 会基于同一份旧 query 相互覆盖。
+    // 环境选择由部署 Store 维护，URL 只锚定页签。
+    const { env: _env, ...query } = route.query;
     router.replace({
       query: {
-        ...route.query,
+        ...query,
         activeTab: TAB_NAMES.instance,
-        env: envName,
       },
     });
   }
