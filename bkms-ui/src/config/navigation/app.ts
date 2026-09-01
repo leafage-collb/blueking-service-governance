@@ -23,6 +23,7 @@ import artifact from '~/pages/application/detail/artifact/index.vue';
 import orchestrate from '~/pages/application/detail/base-info/helm/app-orchestrate.vue';
 import helmInfo from '~/pages/application/detail/base-info/helm/helm-info.vue';
 import trpcInfo from '~/pages/application/detail/base-info/trpc/index.vue';
+import businessConfig from '~/pages/application/detail/business-config/index.vue';
 import dashboard from '~/pages/application/detail/dashboard.vue';
 import trpcDeploy from '~/pages/application/detail/deploy/deploy.vue';
 import helmDeploy from '~/pages/application/detail/helm-deploy/index.vue';
@@ -155,6 +156,15 @@ export const TRPC_NAVIGATION: NavigationItem[] = [
         component: modulesConfig,
       },
       {
+        key: 'businessConfig',
+        name: i18n.global.t('业务配置'),
+        icon: 'business-config',
+        component: businessConfig,
+        meta: {
+          layout: 'empty',
+        },
+      },
+      {
         key: 'appConfig',
         name: i18n.global.t('应用配置'),
         icon: 'setting-fill',
@@ -257,6 +267,15 @@ export const HELM_NAVIGATION: NavigationItem[] = [
         component: networkAccess,
         meta: {
           // 详情页无需默认 Header
+          layout: 'empty',
+        },
+      },
+      {
+        key: 'businessConfig',
+        name: i18n.global.t('业务配置'),
+        icon: 'business-config',
+        component: businessConfig,
+        meta: {
           layout: 'empty',
         },
       },

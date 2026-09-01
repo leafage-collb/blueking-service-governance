@@ -116,7 +116,7 @@
             class="h-[40px] flex items-center border-l-[1px] border-b-[1px] border-[#DCDEE5] ml-[-1px] pl-[8px] pb-[2px]"
           >
             <Checkbox
-              v-model="onlyModified"
+              v-model="onlyStatusActive"
               class="shrink-0"
             >
               <span class="text-[12px] text-[#63656E]">{{ displayFilterLabel }}</span>
@@ -176,9 +176,9 @@
                 <!-- 环境状态（默认配置不显示） -->
                 <span
                   v-if="env.type !== 'default'"
-                  :class="['text-[10px] shrink-0', isModified(env.name) ? 'text-[#F8B64F]' : 'text-[#C4C6CC]']"
+                  :class="['text-[10px] shrink-0', isStatusActive(env.name) ? 'text-[#F8B64F]' : 'text-[#C4C6CC]']"
                 >
-                  {{ isModified(env.name) ? displayStatusLabels.active : displayStatusLabels.inactive }}
+                  {{ isStatusActive(env.name) ? displayStatusLabels.active : displayStatusLabels.inactive }}
                 </span>
               </div>
             </div>
@@ -226,12 +226,23 @@
     modelValue?: string;
     /** 已修改的环境 name 列表 */
     modifiedEnvNames?: string[];
+    /** 是否展示默认配置列 */
+    showDefault?: boolean;
+    /** 环境状态文案配置 */
+    statusConfig?: StatusConfig;
+    /** 激活状态的环境 name 列表；未传时使用 modifiedEnvNames */
+    statusEnvNames?: string[];
     /** 环境状态文案 */
     statusLabels?: { active: string; inactive: string };
     /** 主题：light 浅色（默认），dark 深色（用于编辑器标题栏等深色背景） */
     theme?: 'dark' | 'light';
   }
 
+  interface StatusConfig {
+    activeText: string;
+    filterText: string;
+    inactiveText: string;
+  }
   defineOptions({ inheritAttrs: false });
 
   const { t } = useI18n();
@@ -240,20 +251,32 @@
     modelValue: '__default__',
     modifiedEnvNames: () => [],
     theme: 'light',
+    showDefault: true,
+    statusConfig: () => ({
+      activeText: '已修改',
+      filterText: '仅显示已修改环境',
+      inactiveText: '未修改',
+    }),
   });
   const emits = defineEmits<Emits>();
 
   /** 左侧文案，未传入时默认为「环境视角」 */
   const displayLabel = computed(() => props.label ?? t('环境'));
-  const displayFilterLabel = computed(() => props.filterLabel ?? t('仅显示已修改环境'));
-  const displayStatusLabels = computed(() => props.statusLabels ?? { active: t('已修改'), inactive: t('未修改') });
+  const displayFilterLabel = computed(() => props.filterLabel ?? t(props.statusConfig.filterText));
+  const displayStatusLabels = computed(
+    () =>
+      props.statusLabels ?? {
+        active: t(props.statusConfig.activeText),
+        inactive: t(props.statusConfig.inactiveText),
+      },
+  );
 
   const isDarkTheme = computed(() => props.theme === 'dark');
 
   const popoverRef = ref<InstanceType<typeof Popover> | null>(null);
   const isPopoverVisible = ref(false);
   const searchKeyword = ref('');
-  const onlyModified = ref(false);
+  const onlyStatusActive = ref(false);
 
   const envTypeOrder = ['development', 'test', 'staging', 'production'];
   const FEATURE_ENV_KIND = 'feature';
@@ -272,7 +295,10 @@
   }
 
   /** 是否选中默认配置 */
-  const isDefaultSelected = computed(() => props.modelValue === '' || props.modelValue === '__default__');
+  const isDefaultSelected = computed(
+    () => props.showDefault && (props.modelValue === '' || props.modelValue === '__default__'),
+  );
+  const activeStatusEnvNames = computed(() => props.statusEnvNames ?? props.modifiedEnvNames);
 
   /** 当前选中的环境项 */
   const selectedEnvItem = computed(() => {
@@ -289,9 +315,9 @@
     return env.displayName?.toLowerCase().includes(keyword) || env.name?.toLowerCase().includes(keyword);
   }
 
-  function isModifiedVisible(env: EnvOutput) {
-    if (!onlyModified.value) return true;
-    return !!env.name && props.modifiedEnvNames.includes(env.name);
+  function isStatusVisible(env: EnvOutput) {
+    if (!onlyStatusActive.value) return true;
+    return !!env.name && activeStatusEnvNames.value.includes(env.name);
   }
 
   /** 分组数据（含过滤） */
@@ -300,7 +326,7 @@
     const groups: GroupItem[] = [];
 
     // 默认分组（仅在非过滤状态下显示）
-    if (!onlyModified.value && !keyword) {
+    if (props.showDefault && !onlyStatusActive.value && !keyword) {
       groups.push({
         type: 'default',
         label: '默认',
@@ -335,12 +361,12 @@
           const sourceMatched = isKeywordMatched(env, keyword);
           const children = featureEnvMap.get(env) || [];
           const visibleChildren = children.filter(child => {
-            if (!isModifiedVisible(child)) return false;
+            if (!isStatusVisible(child)) return false;
             if (!keyword) return true;
             return sourceMatched || isKeywordMatched(child, keyword);
           });
-          const sourceVisible = isModifiedVisible(env) && (!keyword || sourceMatched);
-          const shouldShowSource = sourceVisible || (isModifiedVisible(env) && visibleChildren.length > 0);
+          const sourceVisible = isStatusVisible(env) && (!keyword || sourceMatched);
+          const shouldShowSource = sourceVisible || (isStatusVisible(env) && visibleChildren.length > 0);
 
           if (shouldShowSource) {
             envs.push({
@@ -363,7 +389,7 @@
 
       orphanFeatureEnvs
         .filter(env => env.type === type)
-        .filter(env => isModifiedVisible(env) && (!keyword || isKeywordMatched(env, keyword)))
+        .filter(env => isStatusVisible(env) && (!keyword || isKeywordMatched(env, keyword)))
         .forEach(env => {
           envs.push({
             ...env,
@@ -387,7 +413,7 @@
   function handlePopoverHidden() {
     isPopoverVisible.value = false;
     searchKeyword.value = '';
-    onlyModified.value = false;
+    onlyStatusActive.value = false;
   }
 
   function handlePopoverShow() {
@@ -400,14 +426,14 @@
     popoverRef.value?.hide();
   }
 
-  /** 判断环境是否已修改 */
-  function isModified(envName: string): boolean {
-    return props.modifiedEnvNames.includes(envName);
-  }
-
   /** 判断环境是否选中 */
   function isSelected(env: GroupEnvItem): boolean {
     return env.name === props.modelValue;
+  }
+
+  /** 判断环境是否处于当前状态类型的激活状态 */
+  function isStatusActive(envName: string): boolean {
+    return activeStatusEnvNames.value.includes(envName);
   }
 </script>
 
