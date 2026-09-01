@@ -49,7 +49,7 @@
       </Form.FormItem>
       <Form.FormItem :label="$t('环境变量')">
         <KeyValue
-          v-model="formData.envVars"
+          v-model="envVarsModel"
           class="max-w-[600px]"
           :key-placeholder="$t('请输入变量名')"
           textarea
@@ -213,7 +213,7 @@
   import RepeatableInput from '~/components/repeatable-input.vue';
   import useEnvManager from '~/composables/use-env-manager';
 
-  import type { AppModelSpecOutputObj } from '~/@types/v1/app';
+  import type { AppModelSpecInput, TafSpecInput, VariableInput } from '~/@types/v1/app';
   import type { IMonacoEditorErrorMarkerItem } from '~/common/util';
 
   interface IProps {
@@ -221,11 +221,11 @@
   }
 
   /** 表单场景下，tafSpec/command/args/envVars 是确定存在的，需要声明为必需 */
-  type TafAppModelSpecForm = Omit<AppModelSpecOutputObj, 'args' | 'command' | 'envVars' | 'tafSpec' | 'trpcSpec'> & {
+  type TafAppModelSpecForm = Omit<AppModelSpecInput, 'args' | 'command' | 'envVars' | 'tafSpec' | 'trpcSpec'> & {
     args: string[];
     command: string[];
-    envVars: Record<string, string>[];
-    tafSpec: Omit<NonNullable<AppModelSpecOutputObj['tafSpec']>, 'fileName' | 'filePath'> & {
+    envVars: VariableInput[];
+    tafSpec: Omit<TafSpecInput, 'fileName' | 'filePath'> & {
       fileName: string;
       filePath: string;
     };
@@ -238,6 +238,12 @@
   const { envList, handleGetEnvList } = useEnvManager();
 
   const formData = ref<TafAppModelSpecForm>(cloneDeep(props.value));
+  const envVarsModel = computed<Record<string, string>[]>({
+    get: () => formData.value.envVars as unknown as Record<string, string>[],
+    set: value => {
+      formData.value.envVars = value as unknown as VariableInput[];
+    },
+  });
 
   // Popover 相关状态
   const isPopoverShow = ref(false);
