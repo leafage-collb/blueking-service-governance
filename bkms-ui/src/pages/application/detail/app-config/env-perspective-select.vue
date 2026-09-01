@@ -36,7 +36,9 @@
         { '!border-[#3a84ff] shadow-[0_0_3px_0_#a3c5fd]': isPopoverVisible },
       ]"
     >
-      <div class="flex items-center h-full px-[10px] border-r-[1px] border-[#c4c6cc]">{{ $t('环境视角') }}</div>
+      <div class="flex items-center h-full px-[10px] border-r-[1px] border-[#c4c6cc]">
+        {{ $t(label) }}
+      </div>
       <div class="flex items-center flex-1 min-w-0 px-[8px]">
         <span
           v-if="selectedEnvItem"
@@ -97,10 +99,12 @@
             class="h-[40px] flex items-center border-l-[1px] border-b-[1px] border-[#DCDEE5] ml-[-1px] pl-[8px] pb-[2px]"
           >
             <Checkbox
-              v-model="onlyModified"
+              v-model="onlyStatusActive"
               class="shrink-0"
             >
-              <span class="text-[12px] text-[#63656E]">{{ $t('仅显示已修改环境') }}</span>
+              <span class="text-[12px] text-[#63656E]">
+                {{ $t(statusConfig.filterText) }}
+              </span>
             </Checkbox>
           </div>
         </div>
@@ -153,12 +157,12 @@
                     {{ $t('特性') }}
                   </Tag>
                 </div>
-                <!-- 已修改/未修改状态（默认配置不显示） -->
+                <!-- 环境状态（默认配置不显示） -->
                 <span
                   v-if="env.type !== 'default'"
-                  :class="['text-[10px] shrink-0', isModified(env.name) ? 'text-[#F8B64F]' : 'text-[#C4C6CC]']"
+                  :class="['text-[10px] shrink-0', isStatusActive(env.name) ? 'text-[#F8B64F]' : 'text-[#C4C6CC]']"
                 >
-                  {{ isModified(env.name) ? $t('已修改') : $t('未修改') }}
+                  {{ $t(isStatusActive(env.name) ? statusConfig.activeText : statusConfig.inactiveText) }}
                 </span>
               </div>
               <!-- 空状态 -->
@@ -171,7 +175,7 @@
             </div>
           </div>
         </div>
-        <!-- 全局空状态：仅显示已修改环境但无匹配数据 -->
+        <!-- 全局空状态：仅显示激活状态环境但无匹配数据 -->
         <div
           v-else
           class="py-[16px] px-[12px] text-[12px] text-[#c4c6cc] text-center"
@@ -204,10 +208,24 @@
   interface IProps {
     /** 环境列表（不含默认配置） */
     envList: EnvOutput[];
+    /** 选择器左侧视角文案 */
+    label?: string;
     /** 选中的值（环境 name，默认配置传 '__default__' 或空字符串） */
     modelValue?: string;
     /** 已修改的环境 name 列表 */
     modifiedEnvNames?: string[];
+    /** 是否展示默认配置列 */
+    showDefault?: boolean;
+    /** 环境状态文案配置 */
+    statusConfig?: StatusConfig;
+    /** 激活状态的环境 name 列表；未传时使用 modifiedEnvNames */
+    statusEnvNames?: string[];
+  }
+
+  interface StatusConfig {
+    activeText: string;
+    filterText: string;
+    inactiveText: string;
   }
 
   defineOptions({ inheritAttrs: false });
@@ -215,13 +233,20 @@
   const props = withDefaults(defineProps<IProps>(), {
     modelValue: '__default__',
     modifiedEnvNames: () => [],
+    label: '环境视角',
+    showDefault: true,
+    statusConfig: () => ({
+      activeText: '已修改',
+      filterText: '仅显示已修改环境',
+      inactiveText: '未修改',
+    }),
   });
   const emits = defineEmits<Emits>();
 
   const popoverRef = ref<InstanceType<typeof Popover> | null>(null);
   const isPopoverVisible = ref(false);
   const searchKeyword = ref('');
-  const onlyModified = ref(false);
+  const onlyStatusActive = ref(false);
 
   const envTypeOrder = ['development', 'test', 'staging', 'production'];
   const FEATURE_ENV_KIND = 'feature';
@@ -241,7 +266,10 @@
   }
 
   /** 是否选中默认配置 */
-  const isDefaultSelected = computed(() => props.modelValue === '' || props.modelValue === '__default__');
+  const isDefaultSelected = computed(
+    () => props.showDefault && (props.modelValue === '' || props.modelValue === '__default__'),
+  );
+  const activeStatusEnvNames = computed(() => props.statusEnvNames ?? props.modifiedEnvNames);
 
   /** 当前选中的环境项 */
   const selectedEnvItem = computed(() => {
@@ -258,9 +286,9 @@
     return env.displayName?.toLowerCase().includes(keyword) || env.name?.toLowerCase().includes(keyword);
   }
 
-  function isModifiedVisible(env: EnvOutput) {
-    if (!onlyModified.value) return true;
-    return !!env.name && props.modifiedEnvNames.includes(env.name);
+  function isStatusVisible(env: EnvOutput) {
+    if (!onlyStatusActive.value) return true;
+    return !!env.name && activeStatusEnvNames.value.includes(env.name);
   }
 
   /** 分组数据（含过滤） */
@@ -269,7 +297,7 @@
     const groups: GroupItem[] = [];
 
     // 默认分组（仅在非过滤状态下显示）
-    if (!onlyModified.value && !keyword) {
+    if (props.showDefault && !onlyStatusActive.value && !keyword) {
       groups.push({
         type: 'default',
         label: '默认',
@@ -305,12 +333,12 @@
           const sourceMatched = isKeywordMatched(env, keyword);
           const children = featureEnvMap.get(env) || [];
           const visibleChildren = children.filter(child => {
-            if (!isModifiedVisible(child)) return false;
+            if (!isStatusVisible(child)) return false;
             if (!keyword) return true;
             return sourceMatched || isKeywordMatched(child, keyword);
           });
-          const sourceVisible = isModifiedVisible(env) && (!keyword || sourceMatched);
-          const shouldShowSource = sourceVisible || (isModifiedVisible(env) && visibleChildren.length > 0);
+          const sourceVisible = isStatusVisible(env) && (!keyword || sourceMatched);
+          const shouldShowSource = sourceVisible || (isStatusVisible(env) && visibleChildren.length > 0);
 
           if (shouldShowSource) {
             envs.push({
@@ -333,7 +361,7 @@
 
       orphanFeatureEnvs
         .filter(env => env.type === type)
-        .filter(env => isModifiedVisible(env) && (!keyword || isKeywordMatched(env, keyword)))
+        .filter(env => isStatusVisible(env) && (!keyword || isKeywordMatched(env, keyword)))
         .forEach(env => {
           envs.push({
             ...env,
@@ -350,14 +378,14 @@
       });
     });
 
-    // 过滤空分组（仅显示已修改环境时）
-    return groups.filter(group => group.isDefault || !onlyModified.value || group.envs.length > 0);
+    // 过滤空分组（仅显示激活状态环境时）
+    return groups.filter(group => group.isDefault || !onlyStatusActive.value || group.envs.length > 0);
   });
 
   function handlePopoverHidden() {
     isPopoverVisible.value = false;
     searchKeyword.value = '';
-    onlyModified.value = false;
+    onlyStatusActive.value = false;
   }
 
   function handlePopoverShow() {
@@ -370,14 +398,14 @@
     popoverRef.value?.hide();
   }
 
-  /** 判断环境是否已修改 */
-  function isModified(envName: string): boolean {
-    return props.modifiedEnvNames.includes(envName);
-  }
-
   /** 判断环境是否选中 */
   function isSelected(env: GroupEnvItem): boolean {
     return env.name === props.modelValue;
+  }
+
+  /** 判断环境是否处于当前状态类型的激活状态 */
+  function isStatusActive(envName: string): boolean {
+    return activeStatusEnvNames.value.includes(envName);
   }
 </script>
 
