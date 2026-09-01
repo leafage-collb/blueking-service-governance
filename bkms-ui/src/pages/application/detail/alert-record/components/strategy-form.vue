@@ -691,7 +691,6 @@
           appID: appDetailStore.appID,
           displayName: formModel.displayName,
           strategyCode: formModel.strategyCode,
-          monitorMetric: formModel.monitorMetric,
           severity: formModel.severity as 1 | 2 | 3,
           threshold,
           effectiveScope,
