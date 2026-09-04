@@ -20,6 +20,7 @@ dist/
 .gemini/
 .windsurf/
 .qwen/
+.agents/
 
 # Local AI temporary documents
 docs/reqs
