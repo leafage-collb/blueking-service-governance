@@ -26,12 +26,16 @@ type FrontendFeaturesOutput struct {
 	// 是否允许空间自建北极星接入点并按集群绑定。为 false 时前端隐藏接入点管理、集群绑定、组件安装等入口，
 	// 所有集群都使用平台托管接入点
 	PolarisWorkspaceAccessPoint bool `json:"polarisWorkspaceAccessPoint"`
+	// 代码库是否以仓库账号密码关联（关闭了蓝盾工蜂 OAuth）。为 true 时前端关联代码库改为填写 HTTPS 地址、
+	// 仓库账号与仓库密码；为 false 时使用工蜂 OAuth 授权的项目下拉
+	CodeRepoCredentialAuth bool `json:"codeRepoCredentialAuth"`
 }
 
 // NewFrontendFeaturesOutput 根据部署配置生成前端功能开关。
 func NewFrontendFeaturesOutput(cfg *config.Config) *FrontendFeaturesOutput {
 	return &FrontendFeaturesOutput{
 		PolarisWorkspaceAccessPoint: cfg.Polaris.AllowWorkspaceAccessPoints,
+		CodeRepoCredentialAuth:      cfg.FeatureIntegrations.DisableBkCIGitOAuth,
 	}
 }
 

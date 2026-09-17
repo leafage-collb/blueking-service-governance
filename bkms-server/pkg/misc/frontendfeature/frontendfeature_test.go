@@ -59,4 +59,16 @@ var _ = Describe("GetFrontendFeatures", func() {
 		features := getFeatures(config.Config{Polaris: config.PolarisConfig{AllowWorkspaceAccessPoints: false}})
 		Expect(features.PolarisWorkspaceAccessPoint).To(BeFalse())
 	})
+
+	It("should use credential auth for code repositories when git oauth is disabled", func() {
+		features := getFeatures(config.Config{
+			FeatureIntegrations: config.FeatureIntegrationsConfig{DisableBkCIGitOAuth: true},
+		})
+		Expect(features.CodeRepoCredentialAuth).To(BeTrue())
+	})
+
+	It("should use git oauth for code repositories by default", func() {
+		features := getFeatures(config.Config{})
+		Expect(features.CodeRepoCredentialAuth).To(BeFalse())
+	})
 })
