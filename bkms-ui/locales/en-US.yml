@@ -2082,3 +2082,4 @@ HostPort 目前仅对绑定联邦集群的环境生效: HostPort currently only 
 环境未配置集群资源，无法部署应用: Configure cluster resources before deploying applications
 导入: Import
 导出: Export
+"集群 {0} 的命名空间 {1} 已被工作空间 {2} 下的环境 {3} 占用": "Namespace {1} in cluster {0} is already used by environment {3} in workspace {2}"
