@@ -280,6 +280,8 @@ export default class ConsoleFetch {
       },
       config || {},
     );
+    const queryParams = fetchConfig.queryParams;
+    delete fetchConfig.queryParams;
     let body: BodyInit | null | undefined;
     const requestParams: RequestParams = isObject(params) ? (params as RequestParams) : {};
     const parseData = this.parseUrlAndParams(`${fetchConfig.prefix}${url}`, requestParams);
@@ -302,6 +304,10 @@ export default class ConsoleFetch {
       fetchConfig.headers = multipartHeaders;
     } else {
       body = isObject(params) ? JSON.stringify(parseData.params || {}) : (params as BodyInit | null | undefined);
+    }
+    const query = objectToQueryParams(queryParams || {});
+    if (query) {
+      parseData.url += `${parseData.url.includes('?') ? '&' : '?'}${query}`;
     }
 
     const requestConfig: Partial<Config> = {
