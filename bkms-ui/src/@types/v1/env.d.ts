@@ -91,6 +91,10 @@ export interface ListFeatureEnvsOutput {
 
 export interface CreateFeatureEnvInput {
   /**
+   * 是否复制来源环境直接配置的自定义环境变量；未传时不复制
+   */
+  copyEnvVars?: boolean;
+  /**
    * 特性环境展示名称
    */
   displayName: string;

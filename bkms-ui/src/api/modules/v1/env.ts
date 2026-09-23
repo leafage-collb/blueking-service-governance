@@ -44,6 +44,8 @@ export const EnvService = {
   /**
    * 创建应用特性环境
    *
+   * copyEnvVars 为可选参数，只有传 true 才复制来源环境的自定义变量；不传或传 false 时不复制。
+   *
    * @method POST
    * @path /apps/{appID}/feat-envs
    * @tag env
