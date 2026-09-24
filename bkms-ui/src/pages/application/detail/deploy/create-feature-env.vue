@@ -76,6 +76,12 @@
         >
           {{ $t('去配置') }}
         </Button>
+        <Button
+          class="mr-[8px]"
+          @click="handleGoEnvVars"
+        >
+          {{ $t('配置环境变量') }}
+        </Button>
         <Button @click="isShow = false">
           {{ $t('关闭') }}
         </Button>
@@ -293,6 +299,23 @@
         ...route.query,
         activeTab: 'deploy-config',
         envName: createdEnv.value.name,
+      },
+    });
+    window.open(resolved.href, '_blank');
+  }
+
+  // 特性环境有独立的环境变量配置视图，使用环境 ID 打开新标签页并保留当前部署页。
+  function handleGoEnvVars() {
+    if (!createdEnv.value?.id) return;
+    const resolved = router.resolve({
+      name: 'detail',
+      params: {
+        ...route.params,
+      },
+      query: {
+        ...route.query,
+        view: 'feature-envs',
+        envVars: createdEnv.value.id,
       },
     });
     window.open(resolved.href, '_blank');
