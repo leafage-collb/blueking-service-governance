@@ -19121,6 +19121,20 @@ const docTemplate = `{
                 }
             }
         },
+        "appcfgfiledef.BSCPConfigObj": {
+            "type": "object",
+            "properties": {
+                "bizID": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "serviceID": {
+                    "type": "string"
+                }
+            }
+        },
         "appcfgfiledef.BaseContentInfoObj": {
             "type": "object",
             "properties": {
@@ -19187,6 +19201,10 @@ const docTemplate = `{
                     "description": "版本描述",
                     "type": "string"
                 },
+                "enableEnvVarRender": {
+                    "description": "创建时可选设置环境变量渲染开关；不传时使用 ConfigKind 默认值",
+                    "type": "boolean"
+                },
                 "fileFormat": {
                     "description": "文件格式",
                     "type": "string",
@@ -19207,6 +19225,13 @@ const docTemplate = `{
                     "description": "容器内挂载目录（plain 必填）",
                     "type": "string",
                     "maxLength": 255
+                },
+                "mountedEnvNames": {
+                    "description": "创建时可选设置挂载环境范围；nil = 全环境生效",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "name": {
                     "description": "文件名称",
@@ -19232,6 +19257,9 @@ const docTemplate = `{
                 },
                 "baseContentInfo": {
                     "$ref": "#/definitions/appcfgfiledef.BaseContentInfoObj"
+                },
+                "bscpConfig": {
+                    "$ref": "#/definitions/appcfgfiledef.BSCPConfigObj"
                 },
                 "configKind": {
                     "type": "string"
