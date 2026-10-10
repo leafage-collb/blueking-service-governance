@@ -34,6 +34,7 @@
           :active-id="activeDefID"
           :create-disabled="envListLoadFailed"
           :files="fileListItems"
+          :loading="isLoading || listLoading || appDetailStore.loading"
           @create="handleOpenCreateFile"
           @delete="handleDeleteFile"
           @select="handleSelectFile"
@@ -269,7 +270,7 @@
                         type="solid"
                       />
                       <Button
-                        :disabled="!currentInstanceFileID"
+                        :disabled="!activeDef?.fileId"
                         text
                         theme="primary"
                         @click="showVersionListSideslider = true"
@@ -485,10 +486,14 @@
     />
     <VersionListSideslider
       v-model:visible="showVersionListSideslider"
+      :config-file-def-id="activeDefID"
       :config-file-list="[]"
-      :current-file-id="currentInstanceFileID"
-      :current-file-name="activeDisplayName"
-      :current-version="currentInstanceVersion"
+      :current-env-name="currentEnv.name"
+      :default-file-id="activeDef?.fileId"
+      :default-version="activeDef?.currentVersion"
+      :enable-env-config="isIndependentConfig"
+      :env-instances="envInstances"
+      :env-list="perspectiveEnvList"
       @refresh="handleRollbackRefresh"
       @rollback="handleRollbackRefresh"
     />
@@ -576,6 +581,7 @@
     deleteDef,
     detail,
     detailLoading,
+    envInstances,
     fetchDefs,
     listLoading,
     modifiedEnvNames,
