@@ -193,7 +193,7 @@
                         <div class="mt-[4px] text-[12px] text-[#979BA5]">
                           {{
                             $t('文件最终挂载到 {0}', [
-                              `${fileInfoFormData.mountDir || '/[路径]'}/${fileInfoFormData.name || '[文件名]'}`,
+                              `${(fileInfoFormData.mountDir || '/[路径]').replace(/\/$/, '')}/${fileInfoFormData.name || '[文件名]'}`,
                             ])
                           }}
                         </div>
@@ -782,9 +782,15 @@
     ],
     mountDir: [
       {
-        message: t('挂载路径必须以 / 开头，且不能为 / 或以 / 结尾'),
+        message: t('挂载路径不能为根目录 /'),
         trigger: 'blur',
-        validator: (value: string) => isFrameworkFile.value || BKMS_REGEX.appConfigMountDirRegex.test(value),
+        validator: (value: string) => isFrameworkFile.value || value !== '/',
+      },
+      {
+        message: t('挂载路径需以 / 开头，例如 /data/config'),
+        trigger: 'blur',
+        validator: (value: string) =>
+          isFrameworkFile.value || value === '/' || BKMS_REGEX.appConfigMountDirRegex.test(value),
       },
     ],
     mountedEnvNames: [
