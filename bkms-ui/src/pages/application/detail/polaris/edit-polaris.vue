@@ -307,6 +307,7 @@
                   :disabled="isEditMode"
                 >
                   <div
+                    v-bk-tooltips="registerModeDisabledTips"
                     class="w-full border border-solid rounded-[2px] px-[16px] py-[8px] transition-colors duration-200"
                     :class="[
                       formModel.registerMode === 'immediate'
@@ -325,6 +326,7 @@
                     </Radio>
                   </div>
                   <div
+                    v-bk-tooltips="registerModeDisabledTips"
                     class="w-full border border-solid rounded-[2px] px-[16px] py-[8px] transition-colors duration-200"
                     :class="[
                       formModel.registerMode === 'on_deploy'
@@ -359,12 +361,6 @@
                     {{ $t('参考文档') }}
                     <Share class="ml-[2px] align-[-2px]" />
                   </a>
-                </div>
-                <div
-                  v-if="isEditMode"
-                  class="mt-[4px] text-[12px] leading-[20px] text-[#979BA5]"
-                >
-                  {{ $t('创建后不可修改') }}
                 </div>
               </Form.FormItem>
 
@@ -761,6 +757,12 @@
       ? t('立即生效时，服务端口不会写入环境变量')
       : t('服务端口会写入到应用的环境变量 {0}_serviceport 中', [formModel.value.instanceKey || t('实例名称')]),
   );
+
+  // 生效方式选项在编辑模式下的禁用提示。
+  const registerModeDisabledTips = computed(() => ({
+    content: t('生效方式创建后不可修改。切换后环境变量会突然出现或消失，可能影响已运行的实例。'),
+    disabled: !isEditMode.value,
+  }));
 
   // 立即生效模式不依赖环境变量，端口与 Token 变更均无需重新部署。
   const showServicePortChangeAlert = computed(() => {
