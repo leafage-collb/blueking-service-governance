@@ -24,12 +24,8 @@
       <Radio label="branch">
         {{ t('分支') }}
       </Radio>
-      <Radio label="tag">
-        Tag
-      </Radio>
-      <Radio label="commit">
-        CommitID
-      </Radio>
+      <Radio label="tag"> Tag </Radio>
+      <Radio label="commit"> CommitID </Radio>
     </Radio.Group>
   </Form.FormItem>
   <Form.FormItem
@@ -72,7 +68,6 @@
   import { Form, Input, Radio } from 'bkui-vue';
   import { debounce } from 'lodash-es';
   import { useI18n } from 'vue-i18n';
-
   import RepoRefSelect from '~/components/repo-ref-select/repo-ref-select.vue';
 
   import { type RevisionType, isCommitID, revisionFieldLabel } from './revision';

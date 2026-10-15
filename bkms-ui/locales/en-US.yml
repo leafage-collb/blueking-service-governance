@@ -451,7 +451,6 @@ VPC网络 (underlay): VPC network (underlay)
 挂载配置修改成功: Mount configuration updated
 挂载配置已关闭: Mount configuration disabled
 编辑挂载配置: Edit Mount Configuration
-请输入应用名称: Enter an application name
 请选择应用类型: Select an application type
 启动命令: Start Command
 环境变量: Environment Variables
@@ -2172,7 +2171,6 @@ HostPort 目前仅对绑定联邦集群的环境生效: HostPort currently only 
 "共 {0} 个文件；未挂载到该环境的配置文件不会出现在容器内。": "{0} files in total. Files not mounted to this environment will not appear in the container."
 挂载环境: Mounted environments
 挂载环境不能为空: Mounted environments cannot be empty
-挂载路径: Mount path
 挂载预览: Mount preview
 恢复为默认配置: Restore default configuration
 恢复为默认配置？: Restore the default configuration?
