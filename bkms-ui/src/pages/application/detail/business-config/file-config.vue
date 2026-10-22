@@ -24,7 +24,7 @@
       :loading="pageLoading"
     >
       <div
-        v-if="!currentEnvName && !envSelectorLoading"
+        v-if="emptyStateMessage"
         class="flex h-full items-center justify-center bg-white"
       >
         <Exception
@@ -32,7 +32,7 @@
           type="empty"
         >
           <template #description>
-            <div class="text-[14px] text-[#4d4f56]">{{ $t('暂无可用环境') }}</div>
+            <div class="text-[14px] text-[#4d4f56]">{{ emptyStateMessage }}</div>
           </template>
         </Exception>
       </div>
@@ -351,8 +351,17 @@
         ></iframe>
         <div
           v-else
-          class="min-h-0 w-full flex-1 bg-white"
-        ></div>
+          class="min-h-0 w-full flex flex-1 items-center justify-center bg-white"
+        >
+          <Exception
+            scene="part"
+            type="empty"
+          >
+            <template #description>
+              <div class="text-[14px] text-[#4d4f56]">{{ $t('BSCP 地址或配置标识缺失，无法加载配置页面') }}</div>
+            </template>
+          </Exception>
+        </div>
       </div>
     </Loading>
   </div>
@@ -368,6 +377,7 @@
   import { isHelmLikeAppType } from '~/composables/app-type';
   import { useAppDetail } from '~/stores/app-detail';
   import { useDeployEnvStore } from '~/stores/deploy-env';
+  import { useSpaceStore } from '~/stores/space';
 
   import EnvPerspectiveSelect from '../app-config/env-perspective-select.vue';
 
@@ -385,6 +395,7 @@
   const { t } = useI18n();
   const appDetailStore = useAppDetail();
   const deployEnvStore = useDeployEnvStore();
+  const spaceStore = useSpaceStore();
 
   const currentEnvName = ref(deployEnvStore.currentEnv);
   const envSelectorLoading = ref(true);
@@ -415,13 +426,24 @@
 
   const isHelmLikeApp = computed(() => isHelmLikeAppType(appDetailStore.appType));
   const mountPopoverWidth = computed(() => (isHelmLikeApp.value ? 730 : 460));
-  // EnvBinding 中 bscpBizID 对应 space，defaultFileAppID 对应当前环境的文件服务。
-  const bscpIframeUrl = computed(() => {
-    const { bscpBizID, defaultFileAppID } = currentEnvBinding.value || {};
-    const bscpOrigin = import.meta.env.BK_BSCP?.replace(/\/+$/, '');
-    if (!bscpOrigin || !bscpBizID || !defaultFileAppID) return '';
+  const configDisabled = computed(() => metadata.value !== null && metadata.value.enable !== true);
+  const emptyStateMessage = computed(() => {
+    if (!currentEnvName.value && !envSelectorLoading.value) return t('暂无可用环境');
+    return configDisabled.value ? t('应用配置管理已停用，请联系管理员') : '';
+  });
 
-    return `${bscpOrigin}/space/${encodeURIComponent(bscpBizID)}/service/${encodeURIComponent(defaultFileAppID)}/config?hideNav=1`;
+  // 业务和项目来自工作空间，环境和应用来自当前环境绑定。
+  const bscpIframeUrl = computed(() => {
+    const { bkCCBizID, bkBSCPProjectID } = spaceStore.workspaceDetail?.bkSystems || {};
+    const { bscpEnvID, bscpAppID } = currentEnvBinding.value || {};
+    const bscpOrigin = import.meta.env.BK_BSCP?.trim().replace(/\/+$/, '');
+    if (metadata.value?.enable !== true || !bscpOrigin || !bkCCBizID || !bkBSCPProjectID || !bscpEnvID || !bscpAppID) {
+      return '';
+    }
+
+    const spacePath = [bkCCBizID, bkBSCPProjectID].map(encodeURIComponent).join('/');
+    const servicePath = [bscpEnvID, bscpAppID].map(encodeURIComponent).join('/');
+    return `${bscpOrigin}/space/${spacePath}/service/${servicePath}/config?hideNav=1`;
   });
   const mountEnabled = computed(() => !!metadata.value?.mountPath?.trim());
   const mountFormRules = {
@@ -548,22 +570,27 @@
 
   /** 启用文件配置：按序初始化元数据 → 创建环境绑定 → 刷新页面状态 */
   async function handleEnableConfig() {
-    if (!appDetailStore.appID || !currentEnvName.value || enableLoading.value) return;
+    if (!appDetailStore.appID || !currentEnvName.value) return;
+    if (enableLoading.value || pageLoading.value || configDisabled.value) return;
 
     // 固定本次操作的目标，避免初始化期间切换环境后将绑定误创建到新环境。
     const targetAppID = appDetailStore.appID;
     const targetEnvName = currentEnvName.value;
-    const shouldInitMetadata = !metadata.value;
+    const requestID = loadRequestID.value;
+    let targetMetadata = metadata.value;
     enableLoading.value = true;
     try {
       // EnvBinding 的创建依赖 Metadata：未初始化时必须严格按“初始化 → 创建绑定”执行。
-      if (shouldInitMetadata) {
-        const initializedMetadata = await BscpcfgService.initBscpCfgMetadata({ appID: targetAppID });
-        // 页面仍停留在原应用时才回写，避免应用切换后短暂展示旧应用的 Metadata。
-        if (appDetailStore.appID === targetAppID) {
-          metadata.value = initializedMetadata;
+      if (!targetMetadata) {
+        targetMetadata = await BscpcfgService.initBscpCfgMetadata({ appID: targetAppID });
+        // 页面仍停留在本次请求的应用和环境时才回写，避免覆盖切换后的状态。
+        if (appDetailStore.appID === targetAppID && requestID === loadRequestID.value) {
+          metadata.value = targetMetadata;
         }
       }
+      // 初始化是幂等的，已有 Metadata 可能已被管理员停用，不能继续创建绑定。
+      if (targetMetadata?.enable !== true) return;
+
       // 点击启用时当前环境必然未绑定；创建接口的 409 会按幂等成功处理。
       await createEnvBinding(targetAppID, targetEnvName);
       await loadCurrentState();
@@ -626,21 +653,22 @@
     const envName = currentEnvName.value;
     const requestID = ++loadRequestID.value;
 
+    metadata.value = null;
+    currentEnvBinding.value = null;
+    enabledEnvNames.value = [];
+
     if (!appID || !envName) {
-      metadata.value = null;
-      currentEnvBinding.value = null;
-      enabledEnvNames.value = [];
       pageLoading.value = false;
       return;
     }
 
     pageLoading.value = true;
     try {
-      // API 约定先确认应用已初始化；Metadata 不存在时无需、也不应继续查询 EnvBinding。
+      // 仅应用已初始化且启用时查询环境绑定，停用后不展示旧绑定。
       const metadataResult = await fetchMetadata();
       if (requestID !== loadRequestID.value) return;
 
-      const bindings = metadataResult ? await fetchEnvBindings() : [];
+      const bindings = metadataResult?.enable === true ? await fetchEnvBindings() : [];
       if (requestID !== loadRequestID.value) return;
       metadata.value = metadataResult;
       currentEnvBinding.value = bindings.find(item => item.envName === envName) || null;

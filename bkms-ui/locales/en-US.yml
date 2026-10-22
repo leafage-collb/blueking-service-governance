@@ -430,6 +430,8 @@ VPC网络 (underlay): VPC network (underlay)
 文件型: File-based
 暂无可用环境: No environments available
 当前环境尚未启用文件类型配置: File-based configuration is not enabled for the current environment
+应用配置管理已停用，请联系管理员: Application configuration management is disabled. Please contact an administrator
+BSCP 地址或配置标识缺失，无法加载配置页面: Unable to load the configuration page because the BSCP URL or configuration IDs are missing
 启用后，会在蓝鲸配置平台（BSCP）上创建文件类型的配置服务: Enabling this feature creates a file-based configuration service in BlueKing Service Configuration Platform (BSCP)
 启用配置: Enable Configuration
 启用配置成功: Configuration enabled
