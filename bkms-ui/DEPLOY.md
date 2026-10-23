@@ -15,7 +15,7 @@
 
 ## 1. 架构简述
 
-- **构建阶段**：`node:23-alpine` 中执行 `pnpm install --frozen-lockfile` 与 `pnpm build --mode production`，产出 `dist/`。运行时变量在构建产物中保留为 `__BKMS_RT_BK_XXX__` 占位符。
+- **构建阶段**：`node:24.22.1-alpine` 中执行 `pnpm install --frozen-lockfile` 与 `pnpm build --mode production`，产出 `dist/`。运行时变量在构建产物中保留为 `__BKMS_RT_BK_XXX__` 占位符。
 - **运行阶段**：`docker-entrypoint.sh` 扫描构建产物中的占位符，用实际环境变量替换后启动 Nginx。无 Node 运行时。
 - **监听端口**：**5000**（与历史 `targetPort` / `http-server` 一致，便于沿用编排配置）。
 - **健康检查**：镜像内置 `HEALTHCHECK`，对 `http://127.0.0.1:5000/` 发起探测；编排层可映射为存活/就绪探针。

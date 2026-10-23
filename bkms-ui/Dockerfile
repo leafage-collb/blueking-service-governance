@@ -1,4 +1,4 @@
-FROM node:23-alpine as build-stage
+FROM node:24.22.1-alpine as build-stage
 
 ARG MODE=production
 ARG BKMS_APP_VERSION

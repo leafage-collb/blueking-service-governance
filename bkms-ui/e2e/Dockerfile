@@ -34,7 +34,7 @@
 #   ./e2e/run.sh --tags "@TC-01 or @TC-02 or @TC-03"
 # ====================================================================
 
-FROM node:22-slim
+FROM node:22.23.4-slim
 
 # 与 apps/ui package.json 的 packageManager 对齐，供 run.sh 使用 pnpm
 RUN corepack enable && corepack prepare pnpm@9.8.0 --activate

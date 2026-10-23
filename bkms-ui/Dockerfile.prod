@@ -2,7 +2,7 @@
 # 生产静态站点：一次构建、多环境部署
 # 运行时通过 ENV_FILE 或 -e 注入 BK_* 环境变量，无需为每个环境构建单独镜像
 
-FROM node:23-alpine AS build
+FROM node:24.22.1-alpine AS build
 
 ARG BKMS_APP_VERSION
 ARG BK_CI_GIT_REPO_HEAD_COMMIT_ID
