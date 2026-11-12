@@ -18,6 +18,7 @@
 
 import { createApp } from 'vue';
 
+import BkUserDisplayName from '@blueking/bk-user-display-name';
 import { LineChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TitleComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
 // @blueking/monitor-vue3-components 内部通过 echarts/core 的 init() 初始化图表，
@@ -37,6 +38,7 @@ echarts.use([
 ]);
 
 import { getUser } from '~/api/modules/user';
+import { getUserDisplayConfig } from '~/common/bk-user-api';
 import { registerMonitorChartApi } from '~/pages/application/detail/deploy/monitor-chart-bridge.js';
 import { useUserStore } from '~/stores/user';
 
@@ -63,9 +65,12 @@ getUser({}, { needRes: true }).then(res => {
   Object.values(import.meta.glob<{ install: UserModule }>('./modules/*.ts', { eager: true })).forEach(i => {
     i.install?.({ app });
   });
+  const userStore = useUserStore();
+  userStore.setUserInfo(res);
+  const userDisplayConfig = getUserDisplayConfig(userStore.tenantId);
+  if (userDisplayConfig) BkUserDisplayName.configure(userDisplayConfig);
   registerMonitorChartApi(app);
   app.mount('#app');
-  useUserStore().setUserInfo(res);
 });
 
 console.log(
