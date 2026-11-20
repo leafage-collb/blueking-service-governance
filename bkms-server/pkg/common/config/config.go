@@ -111,6 +111,13 @@ func Load(ctx context.Context, cfgFile string) (*Config, error) {
 		return nil, errors.Wrap(err, "validate AccountConfig")
 	}
 
+	if err := validate.Struct(cfg.FeatureIntegrations); err != nil {
+		return nil, errors.Wrap(err, "validate FeatureIntegrationsConfig")
+	}
+	if err := validateCodeRepoTypes(cfg.FeatureIntegrations.CodeRepoTypes); err != nil {
+		return nil, err
+	}
+
 	if err := validateBkLoginDependencies(&cfg); err != nil {
 		return nil, err
 	}
@@ -161,6 +168,18 @@ func validateTenantDependencies(cfg *Config) error {
 	}
 	if cfg.BkPlatUrls.BkApiUrlTmpl == "" {
 		return errors.New("bkPlatUrls.bkApiUrlTmpl is required when tenant.enableMultiTenantMode is enabled")
+	}
+	return nil
+}
+
+// validateCodeRepoTypes 校验同一代码库类型不重复配置
+func validateCodeRepoTypes(types []CodeRepoTypeConfig) error {
+	seen := make(map[string]struct{}, len(types))
+	for _, t := range types {
+		if _, ok := seen[t.Type]; ok {
+			return errors.Errorf("featureIntegrations.codeRepoTypes: duplicated type %s", t.Type)
+		}
+		seen[t.Type] = struct{}{}
 	}
 	return nil
 }

@@ -60,15 +60,21 @@ var _ = Describe("GetFrontendFeatures", func() {
 		Expect(features.PolarisWorkspaceAccessPoint).To(BeFalse())
 	})
 
-	It("should use credential auth for code repositories when git oauth is disabled", func() {
+	It("should return the configured code repository types", func() {
 		features := getFeatures(config.Config{
-			FeatureIntegrations: config.FeatureIntegrationsConfig{DisableBkCIGitOAuth: true},
+			FeatureIntegrations: config.FeatureIntegrationsConfig{CodeRepoTypes: []config.CodeRepoTypeConfig{{
+				Type: config.CodeRepoTypeTGit, BkCIRepoType: "codeTGit", AuthTypes: []string{config.CodeRepoAuthPassword},
+			}}},
 		})
-		Expect(features.CodeRepoCredentialAuth).To(BeTrue())
+		Expect(features.CodeRepoTypes).To(HaveLen(1))
+		Expect(features.CodeRepoTypes[0].Type).To(Equal(config.CodeRepoTypeTGit))
+		Expect(features.CodeRepoTypes[0].AuthTypes).To(Equal([]string{config.CodeRepoAuthPassword}))
 	})
 
-	It("should use git oauth for code repositories by default", func() {
+	It("should return TGit with oauth when code repository types are not configured", func() {
 		features := getFeatures(config.Config{})
-		Expect(features.CodeRepoCredentialAuth).To(BeFalse())
+		Expect(features.CodeRepoTypes).To(HaveLen(1))
+		Expect(features.CodeRepoTypes[0].Type).To(Equal(config.CodeRepoTypeTGit))
+		Expect(features.CodeRepoTypes[0].AuthTypes).To(Equal([]string{config.CodeRepoAuthOAuth}))
 	})
 })
