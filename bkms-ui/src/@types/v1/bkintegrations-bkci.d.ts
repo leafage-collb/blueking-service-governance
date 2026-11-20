@@ -89,6 +89,13 @@ export interface ListBkCIRepositoryBranchesRequest {
   pageSize: number;
 }
 
+export type TestBkCIRepositoryConnectivityRequest = BkCIRepositoryConnectivityTestInput & {
+  /**
+   * 工作空间 ID
+   */
+  workspaceID: string;
+};
+
 export interface ListBkCIRepositoryTagsRequest {
   /**
    * 工作空间 ID
@@ -138,6 +145,24 @@ export interface GetBkCIPipelineVariablesOutput {
 
 export interface ListBkCIRepositoryBranchesOutput {
   data?: BkCIRepositoryRefOutput[];
+}
+
+export interface BkCIRepositoryConnectivityTestInput {
+  /**
+   * 仓库密码
+   */
+  password: string;
+  /**
+   * 代码仓库地址，HTTP(S) 地址
+   */
+  repoURL: string;
+  /**
+   * 仓库账号
+   */
+  username: string;
+}
+
+export interface EmptyOutput {
 }
 
 export interface ListBkCIRepositoryTagsOutput {

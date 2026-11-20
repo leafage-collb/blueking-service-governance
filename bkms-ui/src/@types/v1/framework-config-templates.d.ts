@@ -13,7 +13,7 @@ export interface ListWorkspaceFrameworkConfigTemplatesRequest {
    */
   framework?: string;
   /**
-   * 语言：go、cpp
+   * 语言：go、cpp、python
    */
   language?: string;
 }
@@ -91,7 +91,7 @@ export interface CreateTemplateInput {
    */
   isDefault?: boolean;
   /**
-   * 语言：go、cpp
+   * 语言：go、cpp、python
    */
   language: string;
   /**

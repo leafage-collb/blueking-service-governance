@@ -6,7 +6,7 @@
 import type { Config } from '~/api/interceptors';
 import type { NoInfer } from '~/api/ts-helpers';
 import { v1Fetch } from '~/api/clients';
-import type { ListBkCIOAuthGitProjectsRequest, BkCIOAuthGitProjectOutput, GetBkCIOAuthUrlRequest, ListBkCIPipelinesRequest, PaginatedBkCIPipelineOutput, GetBkCIPipelineRequest, BkCIPipelineDetailOutput, GetBkCIPipelineVariablesRequest, BkCIPipelineVariableOutput, ListBkCIRepositoryBranchesRequest, BkCIRepositoryRefOutput, ListBkCIRepositoryTagsRequest } from '~/@types/v1/bkintegrations-bkci';
+import type { ListBkCIOAuthGitProjectsRequest, BkCIOAuthGitProjectOutput, GetBkCIOAuthUrlRequest, ListBkCIPipelinesRequest, PaginatedBkCIPipelineOutput, GetBkCIPipelineRequest, BkCIPipelineDetailOutput, GetBkCIPipelineVariablesRequest, BkCIPipelineVariableOutput, ListBkCIRepositoryBranchesRequest, BkCIRepositoryRefOutput, TestBkCIRepositoryConnectivityRequest, EmptyOutput, ListBkCIRepositoryTagsRequest } from '~/@types/v1/bkintegrations-bkci';
 
 export const BkintegrationsBkciService = {
   /**
@@ -104,6 +104,23 @@ export const BkintegrationsBkciService = {
     params?: NoInfer<Request>,
     config?: Config,
   ) => await v1Fetch.get<Request, ResponseData>('/workspaces/{workspaceID}/bkci-repositories/branches')(params, config),
+  /**
+   * 测试代码库连通性
+   *
+   * 使用仓库账号密码访问代码库，校验地址与账号密码是否正确，不关联代码库
+   *
+   * @method POST
+   * @path /workspaces/{workspaceID}/bkci-repositories/connectivity-test
+   * @tag bkintegrations-bkci
+   * @param workspaceID path string required 工作空间 ID
+   * @param body body BkCIRepositoryConnectivityTestInput required 代码库地址与账号密码
+   * @response 200 EmptyOutput OK
+   * @response 400 GinErrorOutput Bad Request
+   */
+  testBkCIRepositoryConnectivity: async <Request extends TestBkCIRepositoryConnectivityRequest = TestBkCIRepositoryConnectivityRequest, ResponseData = EmptyOutput>(
+    params?: NoInfer<Request>,
+    config?: Config,
+  ) => await v1Fetch.post<Request, ResponseData>('/workspaces/{workspaceID}/bkci-repositories/connectivity-test')(params, config),
   /**
    * 获取代码仓库标签列表
    *

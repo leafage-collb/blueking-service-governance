@@ -262,6 +262,10 @@ export interface BuildConfigOutputObj {
 
 export interface RepositoryBuildConfigOutputObj {
   /**
+   * 鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码）
+   */
+  authType?: string;
+  /**
    * 默认构建分支
    */
   defaultBranch?: string;
@@ -297,6 +301,10 @@ export interface RepositoryBuildConfigOutputObj {
    * 代码仓库类型
    */
   type?: string;
+  /**
+   * 仓库账号，仅账号、密码方式有值
+   */
+  username?: string;
 }
 
 export interface ImageBuildConfigOutputObj {
@@ -380,6 +388,10 @@ export interface BuildCommandsOutputObj {
 
 export interface RepositoryBuildConfigInput {
   /**
+   * 鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码），不传时使用默认鉴权方式
+   */
+  authType?: "OAUTH" | "PASSWORD";
+  /**
    * 默认构建分支
    */
   defaultBranch: string;
@@ -396,13 +408,17 @@ export interface RepositoryBuildConfigInput {
    */
   imageBuildMode?: "platform" | "repositoryDockerfile";
   /**
+   * 仓库密码，仅账号、密码方式使用
+   */
+  password?: string;
+  /**
    * PlatformBuildConfig 平台通用构建配置，仅 imageBuildMode=platform 时有效；Dockerfile 是流水线内部中间产物
    */
   platformBuildConfig?: PlatformBuildConfigInput;
   /**
-   * 蓝盾侧仓库别名
+   * 代码库别名，仅 OAuth 方式使用
    */
-  repoAlias: string;
+  repoAlias?: string;
   /**
    * 代码仓库地址
    */
@@ -415,6 +431,10 @@ export interface RepositoryBuildConfigInput {
    * 代码仓库类型：TGit 或 GitHub
    */
   type: "TGit" | "GitHub";
+  /**
+   * 仓库账号，仅账号、密码方式使用
+   */
+  username?: string;
 }
 
 export interface ImageBuildConfigInput {
@@ -471,13 +491,15 @@ export interface CustomTagOptsInput {
 
 export interface PlatformBuildConfigInput {
   /**
-   * 构建产物目录，可选；为空时 go / cpp 默认 /out。构建阶段命令可通过 ${BKMS_ARTIFACT_DIR} 引用，
-   * 目录内全部内容会拷贝到运行镜像的 /app。必须是绝对路径、不能是根目录、不能包含 .. 路径段，
+   * 构建产物目录，可选，构建命令可通过 ${BKMS_ARTIFACT_DIR} 引用。
+   * go / cpp：为空时默认 /out，目录内全部内容会拷贝到运行镜像的 /app。
+   * python：为空时默认 /app，源码整体拷入该目录并以它作为工作目录。
+   * 必须是绝对路径、不能是根目录、不能包含 .. 路径段，
    * 只允许字母、数字和 . _ - /，最长 128；保存时会去掉末尾 / 等冗余写法
    */
   artifactDir?: string;
   /**
-   * 构建阶段基础镜像
+   * 构建阶段基础镜像；python 只有运行阶段，可留空
    */
   builderImage?: string;
   /**
@@ -485,7 +507,8 @@ export interface PlatformBuildConfigInput {
    */
   commands?: BuildCommandsInput;
   /**
-   * 打包额外文件路径，相对构建目录；空列表表示不额外拷贝
+   * 打包额外文件路径，相对构建目录；空列表表示不额外拷贝。
+   * python 会把源码整体拷入产物目录，额外文件随源码落在产物目录下，不再单独拷贝
    */
   extraFiles?: string[];
   /**

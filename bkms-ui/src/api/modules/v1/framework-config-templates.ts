@@ -19,7 +19,7 @@ export const FrameworkConfigTemplatesService = {
    * @tag framework-config-templates
    * @param workspaceID path string required 工作空间 ID
    * @param framework query string 框架：trpc、taf
-   * @param language query string 语言：go、cpp
+   * @param language query string 语言：go、cpp、python
    * @response 200 ListTemplatesOutput OK
    * @response 400 GinErrorOutput Bad Request
    */

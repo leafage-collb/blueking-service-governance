@@ -268,7 +268,7 @@ export interface CreateBKMSAppInput {
    */
   id: string;
   /**
-   * 语言：go、cpp、nodejs、python，须为框架支持的语言（nodejs、python 仅 blank 支持）
+   * 语言：go、cpp、nodejs、python，须为框架支持的语言（nodejs 仅 blank 支持，python 支持 blank 与 trpc）
    */
   language: string;
   /**
@@ -362,6 +362,10 @@ export interface PipelineBuildConfigInput {
 
 export interface RepoBuildConfigInput {
   /**
+   * 鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码），不传时使用默认鉴权方式
+   */
+  authType?: "OAUTH" | "PASSWORD";
+  /**
    * 默认构建分支
    */
   defaultBranch: string;
@@ -378,13 +382,17 @@ export interface RepoBuildConfigInput {
    */
   imageBuildMode?: "platform" | "repositoryDockerfile";
   /**
+   * 仓库密码，仅账号、密码方式使用
+   */
+  password?: string;
+  /**
    * PlatformBuildConfig 平台通用构建配置，仅 imageBuildMode=platform 时有效；Dockerfile 是流水线内部中间产物
    */
   platformBuildConfig?: PlatformBuildConfigInput;
   /**
-   * 蓝盾侧仓库别名
+   * 代码库别名，仅 OAuth 方式使用
    */
-  repoAlias: string;
+  repoAlias?: string;
   /**
    * 代码仓库地址
    */
@@ -397,17 +405,23 @@ export interface RepoBuildConfigInput {
    * 代码仓库类型：TGit 或 GitHub
    */
   type: "TGit" | "GitHub";
+  /**
+   * 仓库账号，仅账号、密码方式使用
+   */
+  username?: string;
 }
 
 export interface PlatformBuildConfigInput {
   /**
-   * 构建产物目录，可选；为空时 go / cpp 默认 /out。构建阶段命令可通过 ${BKMS_ARTIFACT_DIR} 引用，
-   * 目录内全部内容会拷贝到运行镜像的 /app。必须是绝对路径、不能是根目录、不能包含 .. 路径段，
+   * 构建产物目录，可选，构建命令可通过 ${BKMS_ARTIFACT_DIR} 引用。
+   * go / cpp：为空时默认 /out，目录内全部内容会拷贝到运行镜像的 /app。
+   * python：为空时默认 /app，源码整体拷入该目录并以它作为工作目录。
+   * 必须是绝对路径、不能是根目录、不能包含 .. 路径段，
    * 只允许字母、数字和 . _ - /，最长 128；保存时会去掉末尾 / 等冗余写法
    */
   artifactDir?: string;
   /**
-   * 构建阶段基础镜像
+   * 构建阶段基础镜像；python 只有运行阶段，可留空
    */
   builderImage?: string;
   /**
@@ -415,7 +429,8 @@ export interface PlatformBuildConfigInput {
    */
   commands?: BuildCommandsInput;
   /**
-   * 打包额外文件路径，相对构建目录；空列表表示不额外拷贝
+   * 打包额外文件路径，相对构建目录；空列表表示不额外拷贝。
+   * python 会把源码整体拷入产物目录，额外文件随源码落在产物目录下，不再单独拷贝
    */
   extraFiles?: string[];
   /**
@@ -564,9 +579,17 @@ export interface BCSRepoConfigInput {
 
 export interface HelmGitRepoConfigInput {
   /**
-   * 代码库别名
+   * 鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码），不传时使用默认鉴权方式
    */
-  repoAlias: string;
+  authType?: "OAUTH" | "PASSWORD";
+  /**
+   * 仓库密码，仅账号、密码方式使用
+   */
+  password?: string;
+  /**
+   * 代码库别名，仅 OAuth 方式使用
+   */
+  repoAlias?: string;
   /**
    * 代码库地址
    */
@@ -583,6 +606,10 @@ export interface HelmGitRepoConfigInput {
    * 代码库类型
    */
   type: "TGit" | "GitHub";
+  /**
+   * 仓库账号，仅账号、密码方式使用
+   */
+  username?: string;
 }
 
 export interface HelmRepoConfigInput {
@@ -639,7 +666,7 @@ export interface TrpcSpecInput {
   /**
    * 编程语言
    */
-  language: "go" | "cpp";
+  language: "go" | "cpp" | "python";
 }
 
 export interface AppInfoOutputObj {
@@ -1093,6 +1120,10 @@ export interface BCSRepoConfigOutputObj {
 
 export interface HelmGitRepoConfigOutputObj {
   /**
+   * 鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码）
+   */
+  authType?: string;
+  /**
    * 代码库别名
    */
   repoAlias?: string;
@@ -1112,6 +1143,10 @@ export interface HelmGitRepoConfigOutputObj {
    * 代码库类型
    */
   type?: string;
+  /**
+   * 仓库账号，仅账号、密码方式有值
+   */
+  username?: string;
 }
 
 export interface HelmRepoConfigOutputObj {
@@ -1153,6 +1188,10 @@ export interface PipelineBuildConfigOutputObj {
 
 export interface RepoBuildConfigOutputObj {
   /**
+   * 鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码）
+   */
+  authType?: string;
+  /**
    * 默认分支
    */
   defaultBranch?: string;
@@ -1188,6 +1227,10 @@ export interface RepoBuildConfigOutputObj {
    * 代码库类型
    */
   type?: string;
+  /**
+   * 仓库账号，仅账号、密码方式有值
+   */
+  username?: string;
 }
 
 export interface TagConfigOutputObj {
