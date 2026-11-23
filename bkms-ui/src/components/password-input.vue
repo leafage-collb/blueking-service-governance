@@ -30,7 +30,8 @@
     <Input
       v-else
       ref="inputRef"
-      v-model.trim="localValue"
+      v-model="localValue"
+      :class="{ 'credential-password-modified': credentialMode && isEditMode && !!modelValue }"
       :placeholder="$t('请输入密码')"
       type="password"
     >
@@ -39,6 +40,7 @@
           <i
             v-if="isEditMode"
             class="bkms-icon bkms-icon-redo cursor-pointer text-[#c4c6cc] text-[16px] hover:text-[#313238]"
+            :data-testid="credentialMode ? 'git-repo-restore' : undefined"
             @click="handleReset"
           />
         </div>
@@ -58,15 +60,23 @@
   const modified = defineModel<boolean>('modified', { default: false });
 
   /** 是否为编辑模式（编辑场景下接口不返回密码，需由父组件显式告知） */
-  const props = withDefaults(defineProps<{ hasCredential?: boolean; isEditMode?: boolean }>(), {
-    isEditMode: false,
-    hasCredential: true,
-  });
+  const props = withDefaults(
+    defineProps<{
+      credentialMode?: boolean;
+      hasCredential?: boolean;
+      isEditMode?: boolean;
+    }>(),
+    {
+      isEditMode: false,
+      hasCredential: true,
+      credentialMode: false,
+    },
+  );
 
   /** 是否处于编辑态（显示真实输入框） */
-  const isEditing = ref(false);
+  const isEditing = ref(props.credentialMode && !!modelValue.value);
   /** 输入框内的本地值 */
-  const localValue = ref('');
+  const localValue = ref(props.credentialMode ? modelValue.value : '');
   /** 输入框组件实例引用 */
   const inputRef = ref<InstanceType<typeof Input>>();
   /** 标记是否为内部更新，用于避免 watch 循环 */
@@ -99,7 +109,8 @@
   /** 监听本地值变化，同步到父组件并标记已修改 */
   watch(localValue, val => {
     isInternalUpdate.value = true;
-    modelValue.value = val;
+    modelValue.value = props.credentialMode ? val : val.trim();
+    if (props.credentialMode && val) isEditing.value = true;
     if (!isProgrammaticUpdate.value) {
       modified.value = true;
     }
@@ -116,11 +127,29 @@
     if (val !== localValue.value) {
       isProgrammaticUpdate.value = true;
       localValue.value = val;
-      isEditing.value = false;
+      isEditing.value = props.credentialMode && !!val;
       modified.value = false;
       nextTick(() => {
         isProgrammaticUpdate.value = false;
       });
     }
   });
+
+  defineExpose({ focus: () => inputRef.value?.focus() });
 </script>
+
+<style lang="postcss" scoped>
+  .credential-password-modified.bk-input,
+  .credential-password-modified.bk-input:hover,
+  .credential-password-modified.bk-input.is-focused {
+    background-color: #fff8e6;
+    border-color: #ff9c01;
+    box-shadow: none;
+  }
+
+  .credential-password-modified.bk-input :deep([class~='bk-input--text']),
+  .credential-password-modified.bk-input :deep([class~='bk-input--suffix-icon']),
+  .credential-password-modified.bk-input :deep(input) {
+    background-color: #fff8e6;
+  }
+</style>

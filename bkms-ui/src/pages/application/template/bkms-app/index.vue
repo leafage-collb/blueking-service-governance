@@ -94,6 +94,7 @@
           ref="paramRef"
           class="mt-[16px]"
           :form="form"
+          :git-controller="gitController"
           :platform-build-supported="isRuntimeModSupported(runtime, 'platformBuild')"
         />
       </div>
@@ -134,6 +135,7 @@
         <Button
           v-if="step === 2 && hasFrameworkFile"
           class="min-w-[88px]"
+          :loading="submitting"
           theme="primary"
           @click="next"
           >{{ $t('下一步') }}</Button
@@ -157,7 +159,7 @@
   </ScrollLayout>
 </template>
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+  import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
   import { Alert, Button, Loading } from 'bkui-vue';
   import { useRoute, useRouter } from 'vue-router';
@@ -166,6 +168,7 @@
   import { type IAppType, getAppDisplayLabel } from '~/composables/app-type';
   import { getFrameworkFileFormat, isRuntimeModSupported } from '~/composables/use-app-runtime';
   import { useFocusOnErrorField } from '~/composables/use-focus-on-error-field';
+  import { useGitRepositoryCredentials } from '~/composables/use-git-repository-credentials';
   import useLeaveConfirm from '~/composables/use-leave-confirm';
   import TypeIcon from '~/pages/application/components/type-icon.vue';
   import { useAppDetail } from '~/stores/app-detail';
@@ -199,6 +202,11 @@
   const createdType = ref<IAppType>(APP_TYPES.BKMS_APP);
   const result = ref<IResultData>({ status: 'CREATING', name: '', msg: '' });
   const workspaceID = computed(() => String(route.params.space || ''));
+  const gitController = useGitRepositoryCredentials({
+    getConfig: () => form.value?.buildConfig.repoBuildConfig,
+    workspace: () => workspaceID.value,
+    active: () => form.value?.buildConfig.sourceType === 'codeRepository',
+  });
   const framework = computed(() => (typeof route.query.framework === 'string' ? route.query.framework : ''));
   const language = computed(() => (typeof route.query.language === 'string' ? route.query.language : ''));
   // 离开页面后，迟到的校验和创建响应不再推进步骤或写入全局应用上下文。
@@ -246,6 +254,7 @@
     }
     if (form.value?.framework === framework.value && form.value.language === language.value) return;
     form.value = createBKMSAppForm(workspaceID.value, framework.value, language.value);
+    gitController.invalidate();
     if (framework.value === APP_FRAMEWORKS.TRPC) form.value.frameworkConfigFile.content = trpcTemplate;
     emit('update-text', {
       type: framework.value === APP_FRAMEWORKS.BLANK ? APP_FRAMEWORKS.BLANK : APP_TYPES.BKMS_APP,
@@ -311,13 +320,28 @@
     submitting.value = true;
     try {
       if (!(await validateCurrentStep()) || !form.value || !runtime.value) return;
+      if (!(await gitController.ensureReady())) {
+        if (disposed) return;
+        collectAppConfig();
+        emit('update-step', 2);
+        await nextTick();
+        paramRef.value?.focusGitRepository();
+        return;
+      }
+      if (disposed) return;
       await submit(buildBKMSAppPayload(form.value, runtime.value));
     } finally {
       submitting.value = false;
     }
   }
   async function next() {
-    if (await collectParameters()) emit('update-step', 3);
+    if (submitting.value) return;
+    submitting.value = true;
+    try {
+      if (await collectParameters()) emit('update-step', 3);
+    } finally {
+      submitting.value = false;
+    }
   }
   async function previous() {
     if (props.step === 3) {
@@ -341,6 +365,8 @@
     try {
       const app = await AppService.createBKMSApp(params, { interceptorErr: false });
       if (disposed) return;
+      if (form.value) delete form.value.buildConfig.repoBuildConfig.password;
+      gitController.invalidate();
       appDetailStore.reset();
       appDetailStore.updateAppID(app.id || params.id);
       appDetailStore.updateAppName(app.name || params.name);

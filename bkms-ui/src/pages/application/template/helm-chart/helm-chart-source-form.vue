@@ -41,18 +41,16 @@
   </Form.FormItem>
   <!-- 源码 -->
   <template v-if="repoType === REPO_TYPE_GIT">
-    <Form.FormItem
-      :label="$t('代码库')"
-      :property="`${prefix}helmSource.gitRepoConfig.repoURL`"
-      required
-      :rules="rules.gitRepo.repoURL"
-    >
-      <GitSelector
-        v-model="gitRepoConfig.repoURL"
+    <div data-test-id="helm-chart-git-repository">
+      <GitRepositoryForm
+        ref="gitRepositoryRef"
+        :baseline="baseline"
+        :config="gitRepoConfig"
+        :is-edit-mode="isEditMode"
+        :layout="isEditMode ? 'vertical' : 'horizontal'"
         :workspace="spaceStore.currentSpace"
-        @change="handleRepoURLChange"
       />
-    </Form.FormItem>
+    </div>
     <Form.FormItem
       :label="$t('分支')"
       :property="`${prefix}helmSource.gitRepoConfig.revision`"
@@ -144,14 +142,20 @@
   </template>
 </template>
 <script setup lang="ts">
-  import { computed, onMounted, ref, watch } from 'vue';
+  import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
   import { Form, Input, Radio } from 'bkui-vue';
   import { cloneDeep, isEqual } from 'lodash-es';
+  import GitRepositoryForm from '~/components/git-repository-form.vue';
+  import {
+    type GitRepositoryConfig,
+    clearGitPasswords,
+    ensureActiveGitReady,
+    serializeGitRepository,
+  } from '~/composables/use-git-repository-credentials';
   import { useSpaceStore } from '~/stores/space';
 
   import type { HelmGitRepoConfigInput, HelmRepoConfigInput, HelmSourceInput, HelmSpecInput } from '~/@types/v1/app';
-  import type { BkCIOAuthGitProjectOutput } from '~/@types/v1/bkintegrations-bkci';
 
   // repoType 常量
   const REPO_TYPE_GIT = 'GitRepo';
@@ -159,6 +163,7 @@
   // const REPO_TYPE_BCS = 'BCSRepo';
 
   interface IProps {
+    baseline?: GitRepositoryConfig;
     initialData?: HelmSpecInput;
     isEditMode?: boolean;
     validatePrefix?: string;
@@ -172,6 +177,7 @@
   /** 记录是否有凭证（username 有值），用于控制 PasswordInput 占位符显示 */
   const hasInitialCredential = ref(false);
   const passwordModified = ref(false);
+  const gitRepositoryRef = ref<InstanceType<typeof GitRepositoryForm> | null>(null);
   const prefix = computed(() => (props.validatePrefix ? `${props.validatePrefix}.` : ''));
 
   // repoType 计算属性，简化模板中使用
@@ -194,13 +200,6 @@
       },
     ],
     gitRepo: {
-      repoURL: [
-        {
-          required: true,
-          trigger: 'blur',
-          validator: () => !!helmSpecData.value.helmSource.gitRepoConfig?.repoURL,
-        },
-      ],
       revision: [
         {
           required: true,
@@ -289,11 +288,6 @@
     passwordModified.value = false;
   };
 
-  // 仓库地址变更
-  function handleRepoURLChange(project: BkCIOAuthGitProjectOutput) {
-    helmSpecData.value.helmSource.gitRepoConfig!.repoAlias = project.alias!;
-  }
-
   // 桥接计算属性，解决模板中深层可选属性的类型安全问题
   const gitRepoConfig = computed({
     get: () => helmSpecData.value.helmSource.gitRepoConfig!,
@@ -310,13 +304,29 @@
 
   const valueFiles = computed(() => helmSpecData.value?.helmSource.valueFiles?.join(','));
 
+  function clearGitDraft() {
+    clearGitPasswords(
+      gitRepositoryRef.value?.invalidate,
+      helmSpecData.value.helmSource?.gitRepoConfig,
+      gitRepoCache.value,
+    );
+  }
+
+  function ensureGitReady() {
+    return ensureActiveGitReady(repoType.value === REPO_TYPE_GIT, () => gitRepositoryRef.value?.ensureReady());
+  }
+
   function getPasswordModified(): boolean {
     return passwordModified.value;
   }
 
   // 暴露 getValue 方法供父组件调用
   function getValue(): HelmSpecInput | null {
-    return cloneDeep(helmSpecData.value);
+    const value = cloneDeep(helmSpecData.value);
+    if (value.helmSource.repoType === REPO_TYPE_GIT && value.helmSource.gitRepoConfig) {
+      value.helmSource.gitRepoConfig = serializeGitRepository(value.helmSource.gitRepoConfig);
+    }
+    return value;
   }
 
   function handleValuesFileChange(v: string) {
@@ -326,6 +336,7 @@
   // 监听 repoType 变化，缓存/恢复数据
   watch(repoType, (newRepoType, oldRepoType) => {
     if (!oldRepoType) return;
+    gitRepositoryRef.value?.invalidate();
 
     const valueFiles = helmSpecData.value.helmSource.valueFiles || ['values.yaml'];
 
@@ -369,5 +380,7 @@
     initHelmSpecData();
   });
 
-  defineExpose({ getPasswordModified, getValue });
+  onBeforeUnmount(clearGitDraft);
+
+  defineExpose({ clearGitDraft, ensureGitReady, getPasswordModified, getValue });
 </script>

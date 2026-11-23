@@ -2412,3 +2412,20 @@ BSCP: BSCP
 请输入策略名称，1 ~ 32 个字符: Enter a strategy name (1-32 characters)
 例如：生产环境先放 1 个实例观察，再按 25% / 50% / 全量放量: e.g. Update 1 instance in production first, then roll out by 25% / 50% / all
 策略名称在当前空间已存在: This strategy name already exists in the current space
+仓库账号: Repository account
+仓库密码: Repository password
+用于拉取私有仓库，保存后不再显示。修改账号时需要重新填写密码: Used to pull private repositories and hidden after saving. Enter the password again after changing the account
+已成功连接到代码仓库 {0}: Successfully connected to code repository {0}
+未填写: Not provided
+请输入 HTTPS 仓库地址，如 https://git.example.com/group/app.git: Enter an HTTPS repository URL, such as https://git.example.com/group/app.git
+请输入代码仓库地址: Enter the repository URL
+请输入不含账号密码的 HTTPS 仓库地址: Enter an HTTPS repository URL without embedded credentials
+请输入仓库账号: Enter the repository account
+请输入仓库密码: Enter the repository password
+仓库账号不能超过128个字符: Repository account must not exceed 128 characters
+仓库密码不能超过256个字符: Repository password must not exceed 256 characters
+正在加载代码仓库配置: Loading repository settings
+代码仓库配置加载失败: Failed to load repository settings
+代码仓库连通性测试成功: Repository connectivity test passed
+代码仓库连通性测试失败，请检查仓库地址和账号密码: Connectivity test failed. Check the repository URL and credentials
+密码已修改，保存后生效: Password changed. Save to apply

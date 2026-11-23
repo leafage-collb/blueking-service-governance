@@ -47,17 +47,16 @@
   </Form.FormItem>
   <!-- 代码仓库 -->
   <template v-if="buildConfigData.sourceType === 'codeRepository'">
-    <Form.FormItem
-      :label="$t('代码库')"
-      :property="`${prefix}repoBuildConfig.repoURL`"
-      required
-    >
-      <GitSelector
-        v-model="buildConfigData.repoBuildConfig!.repoURL"
+    <div data-test-id="helm-build-git-repository">
+      <GitRepositoryForm
+        ref="gitRepositoryRef"
+        :baseline="baseline"
+        :config="buildConfigData.repoBuildConfig!"
+        :is-edit-mode="isEditMode"
+        :layout="isEditMode ? 'vertical' : 'horizontal'"
         :workspace="spaceStore.currentSpace"
-        @change="handleRepoURLChange"
       />
-    </Form.FormItem>
+    </div>
     <Form.FormItem
       :label="$t('默认分支')"
       :property="`${prefix}repoBuildConfig.defaultBranch`"
@@ -143,14 +142,20 @@
   </template>
 </template>
 <script lang="ts" setup>
-  import { computed, ref, watch } from 'vue';
+  import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
   import { Form, Input, Radio } from 'bkui-vue';
   import { cloneDeep, isEqual } from 'lodash-es';
+  import GitRepositoryForm from '~/components/git-repository-form.vue';
+  import {
+    type GitRepositoryConfig,
+    clearGitPasswords,
+    ensureActiveGitReady,
+    serializeGitRepository,
+  } from '~/composables/use-git-repository-credentials';
   import { useSpaceStore } from '~/stores/space';
 
   import type { BuildConfigInput, RepoBuildConfigInput, TagConfigOutputObj } from '~/@types/v1/app';
-  import type { BkCIOAuthGitProjectOutput } from '~/@types/v1/bkintegrations-bkci';
 
   // BuildConfig 扩展类型，包含 tagConfig
   interface BuildConfigWithTagConfig extends BuildConfigInput {
@@ -161,6 +166,7 @@
     (e: 'update:modelValue', data: BuildConfigWithTagConfig): void;
   }
   interface IProps {
+    baseline?: GitRepositoryConfig;
     forceDisableCodeRepo?: boolean;
     isEditMode?: boolean;
     modelValue: BuildConfigWithTagConfig;
@@ -177,6 +183,7 @@
   const spaceStore = useSpaceStore();
 
   const buildConfigData = ref(props.modelValue);
+  const gitRepositoryRef = ref<InstanceType<typeof GitRepositoryForm> | null>(null);
   const passwordModified = defineModel<boolean>('passwordModified', { default: false });
   const prefix = computed(() => (props.validatePrefix ? `${props.validatePrefix}.` : ''));
 
@@ -220,10 +227,11 @@
 
   // 镜像来源
   function handleSourceTypeChange() {
+    gitRepositoryRef.value?.invalidate();
     if (buildConfigData.value.sourceType === 'codeRepository') {
       (buildConfigData.value as Partial<BuildConfigInput>).imageBuildConfig = undefined;
       (buildConfigData.value.repoBuildConfig as Partial<RepoBuildConfigInput>) = {
-        type: 'TGit', // todo 目前GitSelector组件只支持TGit
+        type: 'TGit',
         dockerBuildArgs: {},
       };
     } else if (buildConfigData.value.sourceType === 'imageRegistry') {
@@ -245,6 +253,24 @@
       value: String(value),
     })),
   );
+  function clearGitDraft() {
+    clearGitPasswords(gitRepositoryRef.value?.invalidate, buildConfigData.value.repoBuildConfig);
+  }
+
+  function ensureGitReady() {
+    return ensureActiveGitReady(buildConfigData.value.sourceType === 'codeRepository', () =>
+      gitRepositoryRef.value?.ensureReady(),
+    );
+  }
+
+  function getValue(): BuildConfigWithTagConfig {
+    const value = cloneDeep(buildConfigData.value);
+    if (value.sourceType === 'codeRepository' && value.repoBuildConfig) {
+      value.repoBuildConfig = serializeGitRepository(value.repoBuildConfig);
+    }
+    return value;
+  }
+
   function handleDockerBuildArgsChange(value: Record<string, string> | Record<string, string>[]) {
     if (Array.isArray(value)) {
       // 处理数组格式
@@ -254,14 +280,11 @@
           argsObject[arg.key] = arg.value;
         }
       });
-      // todo 目前GitSelector组件只支持TGit
-      buildConfigData.value.repoBuildConfig!.type = 'TGit';
       buildConfigData.value.repoBuildConfig!.dockerBuildArgs = argsObject;
     }
   }
 
-  // 仓库地址变更
-  function handleRepoURLChange(project: BkCIOAuthGitProjectOutput) {
-    buildConfigData.value.repoBuildConfig!.repoAlias = project.alias ?? '';
-  }
+  onBeforeUnmount(clearGitDraft);
+
+  defineExpose({ clearGitDraft, ensureGitReady, getValue });
 </script>

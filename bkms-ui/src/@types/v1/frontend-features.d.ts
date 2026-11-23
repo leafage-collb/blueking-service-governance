@@ -26,7 +26,7 @@ export interface CodeRepoTypeOutput {
   /**
    * 支持的鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码），第一个为默认鉴权方式
    */
-  authTypes?: "OAUTH" | "PASSWORD"[];
+  authTypes?: ("OAUTH" | "PASSWORD")[];
   /**
    * 代码库类型，如 TGit
    */

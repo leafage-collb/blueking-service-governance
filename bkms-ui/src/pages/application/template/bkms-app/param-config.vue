@@ -82,17 +82,15 @@
             </Button.ButtonGroup>
           </Form.FormItem>
           <template v-if="builderType === 'codeRepository'">
-            <Form.FormItem
-              :label="$t('代码库')"
-              property="buildConfig.repoBuildConfig.repoURL"
-              required
-            >
-              <GitSelector
-                v-model="formData.buildConfig.repoBuildConfig.repoURL"
-                :workspace="formData.workspaceID"
-                @change="handleProjectChange"
-              />
-            </Form.FormItem>
+            <GitRepositoryForm
+              ref="gitRepositoryRef"
+              :config="formData.buildConfig.repoBuildConfig"
+              :controller="gitController"
+              :label-width="135"
+              layout="horizontal"
+              :workspace="formData.workspaceID"
+              @change="handleProjectChange"
+            />
             <Form.FormItem
               class="flex-none"
               :label="$t('默认分支')"
@@ -341,6 +339,7 @@
   import { DOC_LINKS } from '~/common/const';
   import { BKMS_REGEX } from '~/common/const';
   import CardRadio, { type CardRadioOption } from '~/components/card-radio.vue';
+  import GitRepositoryForm from '~/components/git-repository-form.vue';
   import StartupCommandInput from '~/components/startup-command-input.vue';
   import BuildOutputHint from '~/pages/application/components/build-output-hint.vue';
   import GoBuildArgs from '~/pages/application/components/go-build-args.vue';
@@ -351,9 +350,11 @@
   import { type BKMSAppForm, createPlatformBuildConfig } from './use-create-app';
 
   import type { BkCIOAuthGitProjectOutput } from '~/@types/v1/bkintegrations-bkci';
+  import type { GitRepositoryController } from '~/composables/use-git-repository-credentials';
 
   const props = defineProps<{
     form: BKMSAppForm;
+    gitController?: GitRepositoryController;
     platformBuildSupported: boolean;
   }>();
 
@@ -375,6 +376,7 @@
   );
   const formRef = ref<InstanceType<typeof Form> | null>(null);
   const startupCommandRef = ref<InstanceType<typeof StartupCommandInput> | null>(null);
+  const gitRepositoryRef = ref<InstanceType<typeof GitRepositoryForm> | null>(null);
   async function validate() {
     try {
       // 校验基本表单
@@ -386,7 +388,8 @@
         const configValid = await pipelineConfigRef.value.configValidate();
         return formValid && startupValid && pipelineValid && configValid.valid;
       }
-      return formValid && startupValid;
+      if (!formValid || !startupValid) return false;
+      return builderType.value !== 'codeRepository' || Boolean(await gitRepositoryRef.value?.ensureReady());
     } catch {
       return false;
     }
@@ -571,6 +574,7 @@
     () => formData.value.buildConfig.sourceType as 'codeRepository' | 'pipeline',
   );
   function handleChangeBuilderType(type: typeof builderType.value) {
+    if (formData.value.buildConfig.sourceType !== type) props.gitController?.invalidate();
     formData.value.buildConfig.sourceType = type;
   }
 
@@ -713,6 +717,7 @@
     validate,
     getValue,
     getAppIDAutoSuffix,
+    focusGitRepository: () => gitRepositoryRef.value?.focus(),
   });
 </script>
 

@@ -32,7 +32,9 @@
         :model="{}"
       >
         <HelmChartSourceForm
+          :key="formKey"
           ref="sourceFormRef"
+          :baseline="baselineGitConfig"
           :initial-data="helmSourceConfigData"
           is-edit-mode
         />
@@ -56,12 +58,14 @@
   </Sideslider>
 </template>
 <script setup lang="ts">
-  import { ref, watch } from 'vue';
+  import { onBeforeUnmount, ref, watch } from 'vue';
 
   import { Button, Form, Message, Sideslider } from 'bkui-vue';
+  import { cloneDeep } from 'lodash-es';
   import { useI18n } from 'vue-i18n';
   import { HelmSpecInput, HelmSpecOutputObj, UpdateHelmSpecRequest } from '~/@types/v1/app';
   import { AppService } from '~/api/modules/v1';
+  import { type GitRepositoryConfig, clearGitPasswords } from '~/composables/use-git-repository-credentials';
   import useLeaveConfirm from '~/composables/use-leave-confirm';
   import HelmChartSourceForm from '~/pages/application/template/helm-chart/helm-chart-source-form.vue';
   import { useAppDetail } from '~/stores/app-detail';
@@ -79,12 +83,21 @@
   const appDetailStore = useAppDetail();
 
   const formRef = ref();
-  const sourceFormRef = ref();
+  const sourceFormRef = ref<InstanceType<typeof HelmChartSourceForm> | null>(null);
+  const formKey = ref(0);
+  const baselineGitConfig = ref<GitRepositoryConfig>();
   const helmSourceConfigData = ref<HelmSpecInput>({} as HelmSpecInput);
   const { confirmBox, forceCleanDirtyTag } = useLeaveConfirm(helmSourceConfigData);
 
+  function clearGitDraft() {
+    clearGitPasswords(() => sourceFormRef.value?.clearGitDraft(), helmSourceConfigData.value.helmSource?.gitRepoConfig);
+  }
+
+  onBeforeUnmount(clearGitDraft);
+
   // 侧边栏关闭前确认
   const handleBeforeClose = () => {
+    if (loading.value) return false;
     return confirmBox();
   };
 
@@ -97,7 +110,15 @@
   watch(
     () => props.isShow,
     () => {
+      if (!props.isShow) {
+        clearGitDraft();
+        return;
+      }
       if (!props.data || !props.isShow) return;
+      formKey.value++;
+      baselineGitConfig.value = props.data.helmSource?.gitRepoConfig?.repoURL
+        ? cloneDeep(props.data.helmSource.gitRepoConfig)
+        : undefined;
       if (props.data.helmSource?.repoType === 'HelmRepo') {
         helmSourceConfigData.value = {
           helmSource: {
@@ -113,7 +134,7 @@
       } else if (props.data.helmSource?.repoType === 'BCSRepo') {
         // TODO: BCSRepo 处理逻辑待补充
       } else if (props.data.helmSource?.repoType === 'GitRepo') {
-        helmSourceConfigData.value = props.data as HelmSpecInput;
+        helmSourceConfigData.value = cloneDeep(props.data) as HelmSpecInput;
       }
       forceCleanDirtyTag();
     },
@@ -123,41 +144,47 @@
   // 修改helm chart 源码配置
   const loading = ref(false);
   async function handleSaveConfig() {
-    const formValid = await formRef.value.validate().catch(() => false);
-    if (!formValid || !appDetailStore.app) return;
-
-    const sourceData = sourceFormRef.value?.getValue();
-    if (!sourceData) return;
-
-    const helmSource = sourceData.helmSource;
-    // 保持密码占位符未修改时不传 password；仅清空或修改密码输入框时显式传递 password。
-    if (props?.data?.helmSource?.repoType === 'HelmRepo' && helmSource.helmRepoConfig) {
-      const { password, ...helmRepoConfigWithoutPassword } = helmSource.helmRepoConfig;
-      const passwordModified = Boolean(sourceFormRef.value?.getPasswordModified?.());
-      helmSource.helmRepoConfig = (
-        passwordModified ? { ...helmRepoConfigWithoutPassword, password } : helmRepoConfigWithoutPassword
-      ) as typeof helmSource.helmRepoConfig;
-    }
-
-    const params: UpdateHelmSpecRequest = {
-      appID: appDetailStore.appID,
-      helmSpec: {
-        helmSource,
-      },
-    };
+    if (loading.value) return;
     loading.value = true;
-    const result = await AppService.updateHelmSpec(params)
-      .then(() => true)
-      .catch(() => false);
-    loading.value = false;
-    forceCleanDirtyTag(() => {
-      if (result) {
-        Message({
-          theme: 'success',
-          message: t('保存成功'),
-        });
-        emit('update');
+    try {
+      const formValid = await formRef.value.validate().catch(() => false);
+      if (!formValid || !appDetailStore.app) return;
+      if (!(await sourceFormRef.value?.ensureGitReady())) return;
+
+      const sourceData = sourceFormRef.value?.getValue();
+      if (!sourceData) return;
+
+      const helmSource = sourceData.helmSource;
+      // 保持密码占位符未修改时不传 password；仅清空或修改密码输入框时显式传递 password。
+      if (props?.data?.helmSource?.repoType === 'HelmRepo' && helmSource.helmRepoConfig) {
+        const { password, ...helmRepoConfigWithoutPassword } = helmSource.helmRepoConfig;
+        const passwordModified = Boolean(sourceFormRef.value?.getPasswordModified?.());
+        helmSource.helmRepoConfig = (
+          passwordModified ? { ...helmRepoConfigWithoutPassword, password } : helmRepoConfigWithoutPassword
+        ) as typeof helmSource.helmRepoConfig;
       }
-    });
+
+      const params: UpdateHelmSpecRequest = {
+        appID: appDetailStore.appID,
+        helmSpec: {
+          helmSource,
+        },
+      };
+      const result = await AppService.updateHelmSpec(params)
+        .then(() => true)
+        .catch(() => false);
+      if (result) clearGitDraft();
+      forceCleanDirtyTag(() => {
+        if (result) {
+          Message({
+            theme: 'success',
+            message: t('保存成功'),
+          });
+          emit('update');
+        }
+      });
+    } finally {
+      loading.value = false;
+    }
   }
 </script>

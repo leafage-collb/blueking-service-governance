@@ -138,9 +138,16 @@
               <FieldItem
                 :container-height="20"
                 :field-value="$t('代码库')"
-                :value="getBuildConfigFieldValue('repoBuildConfig.repoURL')"
+                :value="appData?.buildConfig?.repoBuildConfig?.repoURL || $t('未填写')"
                 value-color="#313238"
                 value-max-width="100%"
+              />
+              <FieldItem
+                v-if="appData?.buildConfig?.repoBuildConfig?.authType === 'PASSWORD'"
+                :container-height="20"
+                :field-value="$t('仓库账号')"
+                :value="appData?.buildConfig?.repoBuildConfig?.username || $t('未填写')"
+                value-color="#313238"
               />
               <FieldItem
                 :container-height="20"
@@ -397,6 +404,7 @@
         v-model:is-show="showBuilderDialog"
         :app-name="appData?.name"
         :language="appData?.language"
+        :saving="updating"
         :type="builderType"
         @confirm="handleUpdateApp('buildConfig', builderData)"
       />
@@ -512,7 +520,7 @@
 
   // 更新构建配置信息
   async function handleUpdateApp(key: string, value: BuilderData) {
-    if (!key || !appData.value) return false;
+    if (!key || !appData.value || updating.value) return false;
 
     updating.value = true;
     const data = cloneDeep<AppDetailOutputObj>(appData.value);

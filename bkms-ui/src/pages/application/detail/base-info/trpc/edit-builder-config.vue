@@ -39,12 +39,14 @@
           <Button.ButtonGroup class="flex items-center w-[420px]">
             <Button
               class="flex-1"
+              :disabled="validating || saving"
               :selected="currentBuilderType === 'codeRepository'"
               @click="toggleBuilderType('codeRepository')"
               >{{ $t('源码仓库') }}</Button
             >
             <Button
               class="flex-1"
+              :disabled="validating || saving"
               :selected="currentBuilderType === 'pipeline'"
               @click="toggleBuilderType('pipeline')"
               >{{ $t('流水线') }}</Button
@@ -52,17 +54,15 @@
           </Button.ButtonGroup>
         </Form.FormItem>
         <div v-if="currentBuilderType === 'codeRepository'">
-          <Form.FormItem
-            :label="$t('代码库')"
-            property="repoBuildConfig.repoURL"
-            required
-          >
-            <GitSelector
-              v-model="builderData!.repoBuildConfig!.repoURL"
-              :workspace="spaceStore.currentSpace"
-              @change="handleProjectChange"
-            />
-          </Form.FormItem>
+          <GitRepositoryForm
+            v-if="builderData.repoBuildConfig"
+            ref="gitRepositoryRef"
+            :baseline="initialGitRepository"
+            :config="builderData.repoBuildConfig"
+            is-edit-mode
+            :workspace="spaceStore.currentSpace"
+            @change="handleProjectChange"
+          />
           <Form.FormItem
             class="flex-none"
             :label="$t('默认分支')"
@@ -303,6 +303,7 @@
             builderData.repoBuildConfig?.imageBuildMode === 'platform' &&
             !platformBuildSupported
           "
+          :loading="validating || saving"
           theme="primary"
           @click="handleSave"
         >
@@ -332,9 +333,11 @@
   import { WorkspaceService } from '~/api/modules/v1/workspace';
   import { DOC_LINKS } from '~/common/const';
   import CardRadio, { type CardRadioOption } from '~/components/card-radio.vue';
+  import GitRepositoryForm from '~/components/git-repository-form.vue';
   import TagConfigForm from '~/components/tag-config-form.vue';
   import ToggleCard from '~/components/toggle-card.vue';
   import { isRuntimeModSupported } from '~/composables/use-app-runtime';
+  import { type GitRepositoryConfig, serializeGitRepository } from '~/composables/use-git-repository-credentials';
   import useLeaveConfirm from '~/composables/use-leave-confirm';
   import BuildOutputHint from '~/pages/application/components/build-output-hint.vue';
   import GoBuildArgs from '~/pages/application/components/go-build-args.vue';
@@ -355,6 +358,7 @@
   interface IProps {
     appName?: string;
     language?: string;
+    saving?: boolean;
     type: BuilderType;
   }
 
@@ -374,6 +378,9 @@
   const { confirmBox, forceCleanDirtyTag } = useLeaveConfirm(builderData);
   /** 当前选中的来源 */
   const currentBuilderType = ref();
+  const gitRepositoryRef = ref<InstanceType<typeof GitRepositoryForm> | null>(null);
+  const initialGitRepository = ref<GitRepositoryConfig>();
+  const validating = ref(false);
 
   /** 缓存各来源的表单数据，切换时不丢失已填写内容 */
   const repoBuildConfigCache = ref<BuildConfigOutputObj['repoBuildConfig'] | null>(null);
@@ -648,56 +655,71 @@
   const pipelineParamsRef = ref();
   /** 保存编辑 */
   const handleSave = async () => {
-    if (
-      currentBuilderType.value === 'codeRepository' &&
-      builderData.value.repoBuildConfig?.imageBuildMode === 'platform' &&
-      !platformBuildSupported.value
-    )
-      return;
-    // 表单校验，主要用于 源码仓库
-    const formValid = await formRef.value.validate().catch(() => false);
-    if (!formValid) return;
+    if (validating.value || props.saving) return;
+    validating.value = true;
+    try {
+      if (
+        currentBuilderType.value === 'codeRepository' &&
+        builderData.value.repoBuildConfig?.imageBuildMode === 'platform' &&
+        !platformBuildSupported.value
+      )
+        return;
+      // 表单校验，主要用于 源码仓库
+      const formValid = await formRef.value.validate().catch(() => false);
+      if (!formValid || !isShow.value) return;
+      if (currentBuilderType.value === 'codeRepository' && !(await gitRepositoryRef.value?.ensureReady())) return;
+      if (!isShow.value) return;
 
-    if (currentBuilderType.value === 'pipeline') {
-      // 获取并验证流水线参数
-      let params = {};
-      if (pipelineParamsRef.value) {
-        const { valid, data } = await pipelineParamsRef.value.save();
-        if (!valid) return;
-        params = data;
+      if (currentBuilderType.value === 'pipeline') {
+        // 获取并验证流水线参数
+        let params = {};
+        if (pipelineParamsRef.value) {
+          const { valid, data } = await pipelineParamsRef.value.save();
+          if (!valid) return;
+          params = data;
+        }
+
+        forceCleanDirtyTag(() => {
+          builderData.value.sourceType = 'pipeline';
+          if (builderData.value.pipelineBuildConfig) {
+            builderData.value.pipelineBuildConfig.params = params;
+          }
+          // 保存时清除非当前来源的配置
+          builderData.value.repoBuildConfig = null;
+          saveTagConfig();
+          emit('confirm');
+        });
+      } else {
+        forceCleanDirtyTag(() => {
+          builderData.value.sourceType = 'codeRepository';
+          if (builderData.value.repoBuildConfig)
+            builderData.value.repoBuildConfig = serializeGitRepository(builderData.value.repoBuildConfig);
+          // 保存时清除非当前来源的配置
+          builderData.value.pipelineBuildConfig = null;
+          // 根据构建方式清理不相关字段
+          if (builderData.value.repoBuildConfig?.imageBuildMode === 'platform') {
+            // platform 模式下清空 dockerfile
+            builderData.value.repoBuildConfig.dockerfile = '';
+          } else {
+            // repositoryDockerfile 模式下移除 platformBuildConfig
+            builderData.value.repoBuildConfig!.platformBuildConfig = undefined;
+          }
+          saveTagConfig();
+          emit('confirm');
+        });
       }
-
-      forceCleanDirtyTag(() => {
-        builderData.value.sourceType = 'pipeline';
-        if (builderData.value.pipelineBuildConfig) {
-          builderData.value.pipelineBuildConfig.params = params;
-        }
-        // 保存时清除非当前来源的配置
-        builderData.value.repoBuildConfig = null;
-        saveTagConfig();
-        emit('confirm');
-      });
-    } else {
-      forceCleanDirtyTag(() => {
-        builderData.value.sourceType = 'codeRepository';
-        // 保存时清除非当前来源的配置
-        builderData.value.pipelineBuildConfig = null;
-        // 根据构建方式清理不相关字段
-        if (builderData.value.repoBuildConfig?.imageBuildMode === 'platform') {
-          // platform 模式下清空 dockerfile
-          builderData.value.repoBuildConfig.dockerfile = '';
-        } else {
-          // repositoryDockerfile 模式下移除 platformBuildConfig
-          builderData.value.repoBuildConfig!.platformBuildConfig = undefined;
-        }
-        saveTagConfig();
-        emit('confirm');
-      });
+      await nextTick();
+    } finally {
+      validating.value = false;
     }
   };
 
   /** 初始化侧栏数据 */
   const init = async () => {
+    initialGitRepository.value =
+      props.type === 'codeRepository' && builderData.value.repoBuildConfig?.repoURL
+        ? (cloneDeep(builderData.value.repoBuildConfig) ?? undefined)
+        : undefined;
     // 回显来源
     currentBuilderType.value = props.type;
 
@@ -790,6 +812,7 @@
   }
 
   function handleBeforeClose() {
+    if (validating.value || props.saving) return false;
     return confirmBox();
   }
 
@@ -810,6 +833,10 @@
   watch(isShow, val => {
     if (val) {
       init();
+    } else {
+      if (builderData.value.repoBuildConfig) delete (builderData.value.repoBuildConfig as GitRepositoryConfig).password;
+      repoBuildConfigCache.value = null;
+      gitRepositoryRef.value?.invalidate();
     }
     forceCleanDirtyTag();
   });

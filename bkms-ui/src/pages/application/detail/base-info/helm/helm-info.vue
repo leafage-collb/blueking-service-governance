@@ -119,7 +119,7 @@
                 :label-width="100"
               >
                 <div class="flex items-center">
-                  <span>{{ appData?.helmSpec?.helmSource?.gitRepoConfig?.repoURL }}</span>
+                  <span>{{ appData?.helmSpec?.helmSource?.gitRepoConfig?.repoURL || $t('未填写') }}</span>
                   <Button
                     class="ml-[6px]"
                     text
@@ -143,6 +143,13 @@
                 :label="$t('路径')"
                 :label-width="100"
                 :value="appData?.helmSpec?.helmSource?.gitRepoConfig?.sourceDir"
+              />
+              <DetailItem
+                v-if="appData?.helmSpec?.helmSource?.gitRepoConfig?.authType === 'PASSWORD'"
+                class="!h-[20px]"
+                :label="$t('仓库账号')"
+                :label-width="160"
+                :value="appData?.helmSpec?.helmSource?.gitRepoConfig?.username || $t('未填写')"
               />
             </template>
             <template v-else-if="appData?.helmSpec?.helmSource?.repoType === 'HelmRepo'">
@@ -211,7 +218,7 @@
                   />
                 </Button>
               </div>
-              <span v-else>--</span>
+              <span v-else>{{ appData?.buildConfig?.sourceType === 'codeRepository' ? $t('未填写') : '--' }}</span>
             </DetailItem>
             <template v-if="appData?.buildConfig?.sourceType === 'codeRepository'">
               <DetailItem
@@ -251,6 +258,13 @@
                   </Tag>
                 </div>
               </DetailItem>
+              <DetailItem
+                v-if="appData?.buildConfig?.repoBuildConfig?.authType === 'PASSWORD'"
+                class="!h-[20px]"
+                :label="$t('仓库账号')"
+                :label-width="160"
+                :value="appData?.buildConfig?.repoBuildConfig?.username || $t('未填写')"
+              />
             </template>
             <DetailItem
               v-if="appData?.buildConfig?.sourceType !== 'imageRegistry'"

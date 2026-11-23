@@ -32,6 +32,8 @@ import { useAppStore } from '~/stores/apps';
 
 import { i18nGlobalMocks, i18nPlugin } from '../helpers/mock-i18n';
 
+import type * as GitRepositoryCredentialsModule from '~/composables/use-git-repository-credentials';
+
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   definitions: vi.fn(),
@@ -42,6 +44,8 @@ const mocks = vi.hoisted(() => ({
   paramValue: vi.fn(),
   appValidate: vi.fn(),
   appValue: vi.fn(),
+  gitEnsureReady: vi.fn(),
+  gitFocus: vi.fn(),
   setQuery: vi.fn(),
 }));
 const routeState = vi.hoisted(() => ({
@@ -58,6 +62,13 @@ vi.mock('~/api/modules/v1/app', () => ({
     createBKMSApp: mocks.create,
   },
 }));
+vi.mock('~/composables/use-git-repository-credentials', async importOriginal => {
+  const actual = await importOriginal<typeof GitRepositoryCredentialsModule>();
+  return {
+    ...actual,
+    useGitRepositoryCredentials: () => ({ ensureReady: mocks.gitEnsureReady, invalidate: vi.fn() }),
+  };
+});
 vi.mock('vue-router', async () => {
   const { createRouterMock } = await import('../helpers/mock-router');
   const { reactive } = await import('vue');
@@ -78,7 +89,11 @@ vi.mock('~/pages/application/template/bkms-app/param-config.vue', () => ({
     props: { form: { type: Object, required: true } },
     setup(props, { expose }) {
       const initialForm = props.form;
-      expose({ validate: () => mocks.paramValidate(), getValue: () => mocks.paramValue(initialForm) });
+      expose({
+        validate: () => mocks.paramValidate(),
+        getValue: () => mocks.paramValue(initialForm),
+        focusGitRepository: mocks.gitFocus,
+      });
       return () => h('div', { 'data-testid': 'parameters' });
     },
   }),
@@ -179,6 +194,7 @@ beforeEach(() => {
   mocks.paramValidate.mockResolvedValue(true);
   mocks.paramValue.mockImplementation(form => ({ ...form, name: 'demo', id: 'demo-1' }));
   mocks.appValidate.mockResolvedValue(true);
+  mocks.gitEnsureReady.mockResolvedValue(true);
   mocks.appValue.mockReturnValue({
     command: ['/server'],
     args: ['--port=8080'],
@@ -339,6 +355,32 @@ describe('统一平台托管创建向导', () => {
 });
 
 describe('创建异步操作隔离', () => {
+  it('最终创建预检失败时回到参数页，保留框架配置并定位仓库', async () => {
+    await openCreateStep('trpc');
+    mocks.gitEnsureReady.mockResolvedValueOnce(false);
+    await userEvent.click(screen.getByRole('button', { name: '创建' }));
+    expect(await screen.findByTestId('parameters')).toBeVisible();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.gitFocus).toHaveBeenCalledOnce();
+
+    await userEvent.click(screen.getByRole('button', { name: '下一步' }));
+    await userEvent.click(await screen.findByRole('button', { name: '创建' }));
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledOnce());
+    expect(mocks.create.mock.calls[0][0].frameworkConfigFile.content).toBe('server: demo');
+  });
+
+  it('最终创建预检期间离开页面，不推进步骤或创建应用', async () => {
+    const { unmount } = await openCreateStep('trpc');
+    const check = deferred<boolean>();
+    mocks.gitEnsureReady.mockReturnValueOnce(check.promise);
+    await userEvent.click(screen.getByRole('button', { name: '创建' }));
+    unmount();
+    check.resolve(false);
+    await flushPromises();
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.gitFocus).not.toHaveBeenCalled();
+  });
+
   it.each(['blank', 'trpc', 'taf'])('%s 校验期间连续点击只校验和创建一次', async framework => {
     await openCreateStep(framework);
     const validation = deferred<boolean>();
@@ -413,6 +455,25 @@ describe('创建异步操作隔离', () => {
 });
 
 describe('创建请求隔离表单状态', () => {
+  it('PASSWORD 只提交真实凭证并移除旧别名，不改变表单原值', () => {
+    const form = createBKMSAppForm('ws-1', 'trpc', 'go');
+    Object.assign(form.buildConfig.repoBuildConfig, {
+      authType: 'PASSWORD',
+      repoURL: 'https://git.example.com/team/app.git',
+      repoAlias: 'old-oauth-alias',
+      username: 'test-user',
+      password: '  new-password  ',
+    });
+    const payload = buildBKMSAppPayload(form, { mods: {} });
+    expect(payload.buildConfig.repoBuildConfig).toMatchObject({
+      authType: 'PASSWORD',
+      username: 'test-user',
+      password: '  new-password  ',
+    });
+    expect(payload.buildConfig.repoBuildConfig).not.toHaveProperty('repoAlias');
+    expect(form.buildConfig.repoBuildConfig.repoAlias).toBe('old-oauth-alias');
+  });
+
   it('不支持平台构建时移除残留配置，流水线来源只提交流水线配置', () => {
     const form = createBKMSAppForm('ws-1', 'blank', 'go');
     form.buildConfig.repoBuildConfig.imageBuildMode = 'platform';
