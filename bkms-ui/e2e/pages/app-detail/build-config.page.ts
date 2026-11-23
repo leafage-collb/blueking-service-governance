@@ -74,6 +74,9 @@ export default class BuildConfigPage extends AppDetailBase {
   }
 
   private async getBuilderConfigSourceType(): Promise<BuilderConfigSourceType> {
+    if (await this.getBuilderConfigSideslider().getByTestId('git-repository-form').isVisible()) {
+      return 'codeRepository';
+    }
     if (
       await this.getBuilderConfigFormItem('代码库')
         .isVisible()
@@ -193,7 +196,13 @@ export default class BuildConfigPage extends AppDetailBase {
   async expectBuilderConfigCurrentSourceFormVisible() {
     const sourceType = await this.getBuilderConfigSourceType();
     if (sourceType === 'codeRepository') {
-      for (const label of ['代码库', '默认分支', '构建目录', 'Dockerfile 路径', '构建参数', '推荐版本号']) {
+      const repositoryForm = this.getBuilderConfigSideslider().getByTestId('git-repository-form');
+      if (await repositoryForm.isVisible()) {
+        await expect(repositoryForm).toContainText(/代码库|代码仓库/);
+      } else {
+        await this.getBuilderConfigFormItem('代码库').waitFor({ state: 'visible', timeout: 10000 });
+      }
+      for (const label of ['默认分支', '构建目录', 'Dockerfile 路径', '构建参数', '推荐版本号']) {
         await this.getBuilderConfigFormItem(label).waitFor({ state: 'visible', timeout: 10000 });
       }
       return;
@@ -364,6 +373,15 @@ export default class BuildConfigPage extends AppDetailBase {
     await this.getBuildConfigSection().getByRole('button', { name: '编辑' }).click();
     await this.waitForSideslider();
     await this.expectBuilderConfigSidesliderVisible();
+  }
+
+  async openHelmChartConfigSideslider() {
+    await this.page
+      .locator('.bkms-content')
+      .filter({ hasText: 'Helm chart 配置' })
+      .getByRole('button', { name: '编辑' })
+      .click();
+    await expect(this.page.getByText('编辑 Helm chart 配置', { exact: true })).toBeVisible();
   }
 
   async reloadBaseInfo() {

@@ -297,6 +297,14 @@ export interface RepositoryBuildConfigOutputObj {
    * 代码仓库类型
    */
   type?: string;
+  /**
+   * 鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码）
+   */
+  authType?: string;
+  /**
+   * 仓库账号，仅账号、密码方式有值
+   */
+  username?: string;
 }
 
 export interface ImageBuildConfigOutputObj {
@@ -400,9 +408,9 @@ export interface RepositoryBuildConfigInput {
    */
   platformBuildConfig?: PlatformBuildConfigInput;
   /**
-   * 蓝盾侧仓库别名
+   * 代码库别名，仅 OAuth 方式使用
    */
-  repoAlias: string;
+  repoAlias?: string;
   /**
    * 代码仓库地址
    */
@@ -415,6 +423,18 @@ export interface RepositoryBuildConfigInput {
    * 代码仓库类型：TGit 或 GitHub
    */
   type: "TGit" | "GitHub";
+  /**
+   * 鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码），不传时使用默认鉴权方式
+   */
+  authType?: "OAUTH" | "PASSWORD";
+  /**
+   * 仓库账号，仅账号、密码方式使用
+   */
+  username?: string;
+  /**
+   * 仓库密码，仅账号、密码方式使用
+   */
+  password?: string;
 }
 
 export interface ImageBuildConfigInput {

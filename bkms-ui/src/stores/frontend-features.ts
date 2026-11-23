@@ -23,6 +23,12 @@ import { FrontendFeaturesService } from '~/api/modules/v1/frontend-features';
 
 import type { FrontendFeaturesOutput } from '~/@types/v1/frontend-features';
 
+export type GitRepositoryAuthType = 'OAUTH' | 'PASSWORD';
+export interface GitRepositoryCapability {
+  authTypes: GitRepositoryAuthType[];
+  type: string;
+}
+
 /**
  * 部署配置决定的前端功能开关。
  * 只控制页面入口和展示，后端接口仍会各自校验。
@@ -31,6 +37,11 @@ import type { FrontendFeaturesOutput } from '~/@types/v1/frontend-features';
 export const useFrontendFeaturesStore = defineStore('frontend-features', () => {
   const features = ref<FrontendFeaturesOutput | null>(null);
   let pendingRequest: null | Promise<FrontendFeaturesOutput | null> = null;
+
+  const codeRepoTypes = ref<GitRepositoryCapability[]>([]);
+  const loaded = ref(false);
+  const loading = ref(false);
+  const error = ref(false);
 
   const polarisWorkspaceAccessPoint = ref(false);
   const enableMultiTenantMode = ref(false);
@@ -51,22 +62,42 @@ export const useFrontendFeaturesStore = defineStore('frontend-features', () => {
     enableKubeInsight.value = features?.enableKubeInsight !== false;
   }
 
+  function applyGitCapabilities(features?: FrontendFeaturesOutput) {
+    const types = features?.codeRepoTypes ?? [{ type: 'TGit', authTypes: ['OAUTH'] }];
+    codeRepoTypes.value = types
+      .filter(item => item.type === 'TGit')
+      .map(item => ({
+        type: item.type!,
+        authTypes: (Array.isArray(item.authTypes) ? item.authTypes : []).filter(
+          (auth): auth is GitRepositoryAuthType => auth === 'OAUTH' || auth === 'PASSWORD',
+        ),
+      }))
+      .filter(item => item.authTypes.length > 0);
+    loaded.value = codeRepoTypes.value.length > 0;
+    error.value = !loaded.value;
+  }
+
   async function getFrontendFeatures() {
     if (pendingRequest) {
       return pendingRequest;
     }
 
+    loading.value = true;
+    error.value = false;
     pendingRequest = FrontendFeaturesService.getFrontendFeatures(undefined, { interceptorErr: false })
       .then(res => {
         features.value = res ?? null;
         apply(res);
+        applyGitCapabilities(res);
         return features.value;
       })
       .catch(err => {
         console.error('获取前端功能开关失败:', err);
+        error.value = !loaded.value;
         return null;
       })
       .finally(() => {
+        loading.value = false;
         pendingRequest = null;
       });
 
@@ -75,6 +106,13 @@ export const useFrontendFeaturesStore = defineStore('frontend-features', () => {
 
   async function load() {
     await getFrontendFeatures();
+  }
+
+  // Git 表单复用启动时已加载的能力配置，失败时允许重试。
+  async function loadGitCapabilities(): Promise<boolean> {
+    if (loaded.value) return true;
+    await getFrontendFeatures();
+    return loaded.value;
   }
 
   return {
@@ -88,5 +126,10 @@ export const useFrontendFeaturesStore = defineStore('frontend-features', () => {
     enableBSCP,
     enableKubeInsight,
     load,
+    codeRepoTypes,
+    loaded,
+    loading,
+    error,
+    loadGitCapabilities,
   };
 });

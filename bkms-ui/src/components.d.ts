@@ -44,6 +44,7 @@ declare module 'vue' {
     FieldItem: typeof import('./components/field-item.vue')['default']
     FlexRow: typeof import('./components/flex-row.vue')['default']
     FormPrefix: typeof import('./components/form-prefix.vue')['default']
+    GitRepositoryForm: typeof import('./components/git-repository-form.vue')['default']
     GitSelector: typeof import('./components/git-selector.vue')['default']
     GrafanaDashboardIframe: typeof import('./components/grafana-dashboard-iframe.vue')['default']
     HoverCopy: typeof import('./components/hover-copy.vue')['default']

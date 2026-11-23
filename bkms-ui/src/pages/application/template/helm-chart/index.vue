@@ -23,6 +23,7 @@
       v-if="step === 2"
       ref="formRef"
       :form="appConfig"
+      :inert="submitting"
     />
     <!-- 创建结果 -->
     <Result
@@ -44,12 +45,14 @@
         <Button
           v-if="step < 3"
           class="mr-[10px]"
+          :disabled="submitting"
           @click="preStep"
           >{{ $t('上一步') }}</Button
         >
         <Button
           v-if="step === 2"
           class="mr-[10px]"
+          :loading="submitting"
           theme="primary"
           @click="createApp"
         >
@@ -57,6 +60,7 @@
         </Button>
         <Button
           class="mr-[10px]"
+          :disabled="submitting"
           @click="cancel"
           >{{ $t('取消') }}</Button
         >
@@ -65,13 +69,14 @@
   </ScrollLayout>
 </template>
 <script lang="ts" setup>
-  import { computed, onMounted, ref } from 'vue';
+  import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 
   import { Button } from 'bkui-vue';
   import { useRoute, useRouter } from 'vue-router';
   import { ApiServerService } from '~/api/modules/bkmsserver';
   import { useAgonesFromRoute } from '~/composables/use-agones';
   import { useFocusOnErrorField } from '~/composables/use-focus-on-error-field';
+  import { clearGitPasswords } from '~/composables/use-git-repository-credentials';
   import { useAppDetail } from '~/stores/app-detail';
   import { useUserStore } from '~/stores/user';
 
@@ -118,6 +123,20 @@
   // 下一步
   const { focusOnErrorField } = useFocusOnErrorField();
   const formRef = ref<InstanceType<typeof ParamConfig> | null>(null);
+  let disposed = false;
+
+  function clearGitDrafts() {
+    clearGitPasswords(
+      () => formRef.value?.clearGitDrafts(),
+      appConfig.value.buildConfig.repoBuildConfig,
+      appConfig.value.helmSpec?.helmSource.gitRepoConfig,
+    );
+  }
+
+  onBeforeUnmount(() => {
+    disposed = true;
+    clearGitDrafts();
+  });
   const router = useRouter();
   // 上一步
   const preStep = async () => {
@@ -142,41 +161,52 @@
     name: '',
     msg: '',
   });
+  const submitting = ref(false);
 
   async function createApp() {
-    const validate = await formRef.value?.validate().catch(() => false);
-    if (!validate) {
-      focusOnErrorField();
-      return;
-    }
-    if (formRef.value) {
-      appConfig.value = formRef.value.getValue();
-    }
+    if (submitting.value || disposed || props.step !== 2) return;
+    submitting.value = true;
+    try {
+      const validate = await formRef.value?.validate().catch(() => false);
+      if (disposed || props.step !== 2) return;
+      if (!validate) {
+        focusOnErrorField();
+        return;
+      }
+      if (formRef.value) {
+        appConfig.value = formRef.value.getValue();
+      }
 
-    await ApiServerService.CreateApp(
-      {
-        ...appConfig.value,
-        workspaceID: space.value,
-      },
-      { interceptorErr: false, needRes: true },
-    )
-      .then(() => {
-        resultData.value.status = 'SUCCESS';
-        resultData.value.name = appConfig.value.name;
-        resultData.value.msg = '';
-        // 更新应用名称
-        appDetailStore.updateAppName(appConfig.value.name);
-        return true;
-      })
-      .catch(err => {
-        resultData.value.status = 'FAILED';
-        resultData.value.name = appConfig.value.name;
-        resultData.value.msg = err?.message || err?.error?.message || '';
-        return false;
-      })
-      .finally(() => {
-        emits('update-step', 3);
-      });
+      await ApiServerService.CreateApp(
+        {
+          ...appConfig.value,
+          workspaceID: space.value,
+        },
+        { interceptorErr: false, needRes: true },
+      )
+        .then(() => {
+          if (disposed) return false;
+          clearGitDrafts();
+          resultData.value.status = 'SUCCESS';
+          resultData.value.name = appConfig.value.name;
+          resultData.value.msg = '';
+          // 更新应用名称
+          appDetailStore.updateAppName(appConfig.value.name);
+          return true;
+        })
+        .catch(err => {
+          if (disposed) return false;
+          resultData.value.status = 'FAILED';
+          resultData.value.name = appConfig.value.name;
+          resultData.value.msg = err?.message || err?.error?.message || '';
+          return false;
+        })
+        .finally(() => {
+          if (!disposed) emits('update-step', 3);
+        });
+    } finally {
+      submitting.value = false;
+    }
   }
   function handleRecreate() {
     emits('update-step', 2);

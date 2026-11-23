@@ -70,6 +70,7 @@
         <div class="px-[245px]">
           <!-- 创建应用：不展示推荐版本号 -->
           <HelmChartBuildForm
+            ref="buildFormRef"
             v-model="formData.buildConfig"
             :force-disable-code-repo="shouldForceDisableCodeRepo"
             :show-tag-config="false"
@@ -82,7 +83,7 @@
 </template>
 <script lang="ts" setup>
   import type { PropType } from 'vue';
-  import { ref, watch } from 'vue';
+  import { onBeforeUnmount, ref, watch } from 'vue';
 
   import { Form, Input } from 'bkui-vue';
   import { cloneDeep } from 'lodash-es';
@@ -91,6 +92,7 @@
   import { ApiServerService } from '~/api/modules/bkmsserver';
   import { BKMS_REGEX } from '~/common/const';
   import { useAgonesFromRoute } from '~/composables/use-agones';
+  import { clearGitPasswords } from '~/composables/use-git-repository-credentials';
 
   import HelmChartBuildForm from './helm-chart-build-form.vue';
   import HelmChartSourceForm from './helm-chart-source-form.vue';
@@ -114,6 +116,7 @@
   const formData = ref(props.form);
   const formRef = ref<InstanceType<typeof Form> | null>(null);
   const sourceFormRef = ref<InstanceType<typeof HelmChartSourceForm> | null>(null);
+  const buildFormRef = ref<InstanceType<typeof HelmChartBuildForm> | null>(null);
 
   const rules = ref({
     name: [
@@ -155,17 +158,32 @@
     ],
   });
 
+  function clearGitDrafts() {
+    clearGitPasswords(
+      () => {
+        sourceFormRef.value?.clearGitDraft();
+        buildFormRef.value?.clearGitDraft();
+      },
+      formData.value.buildConfig.repoBuildConfig,
+      formData.value.helmSpec?.helmSource.gitRepoConfig,
+    );
+  }
+
   function getValue() {
     const result = cloneDeep(formData.value);
     const sourceData = sourceFormRef.value?.getValue();
     if (sourceData) {
       result.helmSpec = sourceData;
     }
+    const buildData = buildFormRef.value?.getValue();
+    if (buildData) result.buildConfig = buildData;
     return result;
   }
 
-  function validate() {
-    return formRef.value?.validate();
+  async function validate(): Promise<boolean> {
+    if (!(await formRef.value?.validate().catch(() => false))) return false;
+    if (!(await sourceFormRef.value?.ensureGitReady())) return false;
+    return Boolean(await buildFormRef.value?.ensureGitReady());
   }
 
   const appIdSuffix = ref('');
@@ -190,7 +208,10 @@
     { immediate: true },
   );
 
+  onBeforeUnmount(clearGitDrafts);
+
   defineExpose({
+    clearGitDrafts,
     validate,
     getValue,
     getAppIDAutoSuffix,

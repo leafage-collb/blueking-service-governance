@@ -302,6 +302,7 @@
       v-model:is-show="showBuilderSideslider"
       :app-name="appDetailStore.appDetail?.name"
       :language="appDetailStore.appDetail?.language"
+      :saving="savingBuilderConfig"
       :type="builderType"
       @confirm="handleUpdateBuildConfig(builderData)"
     />
@@ -775,6 +776,7 @@
   const showBuilderSideslider = ref(false);
   const builderData = ref<BuildConfigOutputObj>({} as BuildConfigOutputObj);
   const builderType = ref<'codeRepository' | 'pipeline'>('codeRepository');
+  const savingBuilderConfig = ref(false);
 
   /**
    * 格式化构建配置为 API 请求参数
@@ -833,10 +835,13 @@
    * @param value 构建配置数据
    */
   async function handleUpdateBuildConfig(value: BuildConfigOutputObj) {
+    if (savingBuilderConfig.value) return;
+    savingBuilderConfig.value = true;
     const params = formatUpdateBuildConfig(value);
     const result = await BuildsService.updateBuildConfig(params, { validateCode: false })
       .then(() => true)
       .catch(() => false);
+    savingBuilderConfig.value = false;
 
     if (result) {
       Message({

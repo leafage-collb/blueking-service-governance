@@ -421,8 +421,10 @@ function schemaToTsType(schema) {
   if (schema.enum?.length) return schema.enum.map(value => JSON.stringify(value)).join(' | ');
 
   switch (schema.type) {
-    case 'array':
-      return `${schemaToTsType(schema.items)}[]`;
+    case 'array': {
+      const itemType = schemaToTsType(schema.items);
+      return `${itemType.includes(' | ') ? `(${itemType})` : itemType}[]`;
+    }
     case 'boolean':
       return 'boolean';
     case 'integer':

@@ -22,6 +22,31 @@ import { describe, expect, it } from 'vitest';
 const require = createRequire(import.meta.url);
 
 describe('OpenAPI v1 API 生成器', () => {
+  it('给枚举联合数组加括号，避免把数组类型生成成单值与数组的联合', () => {
+    const { generateFromSwagger } = require('../scripts/openapi-v1/generator.cjs');
+    const files = generateFromSwagger({
+      swagger: '2.0',
+      info: { title: 'test', version: '1' },
+      paths: {
+        '/frontend-features': {
+          get: {
+            tags: ['frontend-features'],
+            responses: { 200: { schema: { $ref: '#/definitions/Features' } } },
+          },
+        },
+      },
+      definitions: {
+        Features: {
+          type: 'object',
+          properties: {
+            authTypes: { type: 'array', items: { type: 'string', enum: ['OAUTH', 'PASSWORD'] } },
+          },
+        },
+      },
+    });
+    expect(files.typeFiles['frontend-features.d.ts']).toContain('authTypes?: ("OAUTH" | "PASSWORD")[];');
+  });
+
   it('生成包含详细注释的类型文件和 API 文件', () => {
     const { generateFromSwagger } = require('../scripts/openapi-v1/generator.cjs');
 

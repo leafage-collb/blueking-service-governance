@@ -22,6 +22,7 @@ import { cloneDeep } from 'lodash-es';
 import { AppService } from '~/api/modules/v1/app';
 import { APP_FRAMEWORKS, BLANK_LANGUAGES } from '~/common/app-types';
 import { isRuntimeModSupported } from '~/composables/use-app-runtime';
+import { serializeGitRepository } from '~/composables/use-git-repository-credentials';
 
 import type {
   AppRuntimeDefinitionsOutputObj,
@@ -61,6 +62,7 @@ export function buildBKMSAppPayload(form: BKMSAppForm, runtime: PublicView): Cre
   } else {
     delete buildConfig.pipelineBuildConfig;
     if (buildConfig.repoBuildConfig) {
+      buildConfig.repoBuildConfig = serializeGitRepository(buildConfig.repoBuildConfig);
       if (!isRuntimeModSupported(runtime, 'platformBuild'))
         buildConfig.repoBuildConfig.imageBuildMode = 'repositoryDockerfile';
       if (buildConfig.repoBuildConfig.imageBuildMode !== 'platform')

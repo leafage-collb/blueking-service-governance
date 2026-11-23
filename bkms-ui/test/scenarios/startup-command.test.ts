@@ -152,6 +152,12 @@ describe('启动命令输入', () => {
 });
 
 const createPageStubs = {
+  GitRepositoryForm: defineComponent({
+    setup(_props, { expose }) {
+      expose({ ensureReady: async () => true, focus: () => undefined });
+    },
+    template: '<div />',
+  }),
   ToggleCard: { template: '<div><slot /></div>' },
   ResizeLayout: defineComponent({
     setup(_props, { expose }) {
@@ -173,7 +179,6 @@ function mountBlankParameters(form = createBKMSAppForm('ws-1', 'blank', 'python'
       mocks: i18nGlobalMocks,
       stubs: {
         ...createPageStubs,
-        GitSelector: { inheritAttrs: false, template: '<div />' },
         CardRadio: true,
         GoBuildArgs: true,
       },
