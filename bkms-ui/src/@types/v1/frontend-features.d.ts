@@ -40,19 +40,4 @@ export interface FrontendFeaturesOutput {
    * 所有集群都使用平台托管接入点
    */
   polarisWorkspaceAccessPoint?: boolean;
-  /**
-   * 当前环境支持的代码库类型及其鉴权方式
-   */
-  codeRepoTypes?: CodeRepoTypeOutput[];
-}
-
-export interface CodeRepoTypeOutput {
-  /**
-   * 支持的鉴权方式：OAUTH（OAuth 授权）/ PASSWORD（账号、密码），第一个为默认鉴权方式
-   */
-  authTypes?: ("OAUTH" | "PASSWORD")[];
-  /**
-   * 代码库类型，如 TGit
-   */
-  type?: string;
 }
